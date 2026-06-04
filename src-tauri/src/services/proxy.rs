@@ -982,32 +982,48 @@ impl ProxyService {
     async fn backup_live_configs(&self) -> Result<(), String> {
         // Claude
         if let Ok(config) = self.read_claude_live() {
-            let json_str = serde_json::to_string(&config)
-                .map_err(|e| format!("序列化 Claude 配置失败: {e}"))?;
-            self.db
-                .save_live_backup("claude", &json_str)
-                .await
-                .map_err(|e| format!("备份 Claude 配置失败: {e}"))?;
+            // 跳过已被代理接管的 Live：避免把代理占位符当作"原始 Live"存进备份槽。
+            // 否则下次 start_with_takeover 在异常历史状态下（Live 已是占位符）再次
+            // 调用本函数，会用代理配置覆盖一个原本正常的备份；之后 stop 恢复时
+            // 即便走到备份路径也会把代理占位符再写回 Live，永久卡在 127.0.0.1:15721。
+            if Self::live_has_proxy_placeholder_for_app(&AppType::Claude, &config) {
+                log::warn!("claude Live 已被代理接管，不备份（避免把代理配置固化进备份槽）；下次 stop 会从 SSOT 重建 Live");
+            } else {
+                let json_str = serde_json::to_string(&config)
+                    .map_err(|e| format!("序列化 Claude 配置失败: {e}"))?;
+                self.db
+                    .save_live_backup("claude", &json_str)
+                    .await
+                    .map_err(|e| format!("备份 Claude 配置失败: {e}"))?;
+            }
         }
 
         // Codex
         if let Ok(config) = self.read_codex_live() {
-            let json_str = serde_json::to_string(&config)
-                .map_err(|e| format!("序列化 Codex 配置失败: {e}"))?;
-            self.db
-                .save_live_backup("codex", &json_str)
-                .await
-                .map_err(|e| format!("备份 Codex 配置失败: {e}"))?;
+            if Self::live_has_proxy_placeholder_for_app(&AppType::Codex, &config) {
+                log::warn!("codex Live 已被代理接管，不备份（避免把代理配置固化进备份槽）；下次 stop 会从 SSOT 重建 Live");
+            } else {
+                let json_str = serde_json::to_string(&config)
+                    .map_err(|e| format!("序列化 Codex 配置失败: {e}"))?;
+                self.db
+                    .save_live_backup("codex", &json_str)
+                    .await
+                    .map_err(|e| format!("备份 Codex 配置失败: {e}"))?;
+            }
         }
 
         // Gemini
         if let Ok(config) = self.read_gemini_live() {
-            let json_str = serde_json::to_string(&config)
-                .map_err(|e| format!("序列化 Gemini 配置失败: {e}"))?;
-            self.db
-                .save_live_backup("gemini", &json_str)
-                .await
-                .map_err(|e| format!("备份 Gemini 配置失败: {e}"))?;
+            if Self::live_has_proxy_placeholder_for_app(&AppType::Gemini, &config) {
+                log::warn!("gemini Live 已被代理接管，不备份（避免把代理配置固化进备份槽）；下次 stop 会从 SSOT 重建 Live");
+            } else {
+                let json_str = serde_json::to_string(&config)
+                    .map_err(|e| format!("序列化 Gemini 配置失败: {e}"))?;
+                self.db
+                    .save_live_backup("gemini", &json_str)
+                    .await
+                    .map_err(|e| format!("备份 Gemini 配置失败: {e}"))?;
+            }
         }
 
         log::info!("已备份所有应用的 Live 配置");
@@ -1022,6 +1038,15 @@ impl ProxyService {
             AppType::Gemini => ("gemini", self.read_gemini_live()?),
             _ => return Err("该应用不支持代理功能".to_string()),
         };
+
+        // 跳过已被代理接管的 Live：避免把代理占位符当作"原始 Live"存进备份槽
+        // （见 backup_live_configs 中的注释）。
+        if Self::live_has_proxy_placeholder_for_app(app_type, &config) {
+            log::warn!(
+                "{app_type_str} Live 已被代理接管，不备份（避免把代理配置固化进备份槽）；下次 stop 会从 SSOT 重建 Live"
+            );
+            return Ok(());
+        }
 
         let json_str = serde_json::to_string(&config)
             .map_err(|e| format!("序列化 {app_type_str} 配置失败: {e}"))?;
@@ -1327,9 +1352,19 @@ impl ProxyService {
         if let Some(backup) = backup {
             let config: Value = serde_json::from_str(&backup.original_config)
                 .map_err(|e| format!("解析 {app_type_str} 备份失败: {e}"))?;
-            self.write_live_config_for_app(app_type, &config)?;
-            log::info!("{app_type_str} Live 配置已从备份恢复");
-            return Ok(());
+
+            // 备份若是代理占位符（异常历史：上次 stop 失败导致 Live 留在了代理状态，
+            // 下次接管时又被错误地备份成"原始 Live"），不能直接用 — 否则 stop 后
+            // Live 永远卡在 127.0.0.1:15721。落到下面的 SSOT 兜底重建。
+            if Self::live_has_proxy_placeholder_for_app(app_type, &config) {
+                log::warn!(
+                    "{app_type_str} 备份本身已是代理占位符（异常历史状态），跳过备份，改走 SSOT 重建 Live"
+                );
+            } else {
+                self.write_live_config_for_app(app_type, &config)?;
+                log::info!("{app_type_str} Live 配置已从备份恢复");
+                return Ok(());
+            }
         }
 
         // 2) 兜底：备份缺失，但 Live 仍包含接管占位符（异常退出/历史 bug 场景）
@@ -1612,6 +1647,21 @@ impl ProxyService {
             None => return false,
         };
         env.get("GEMINI_API_KEY").and_then(|v| v.as_str()) == Some(PROXY_TOKEN_PLACEHOLDER)
+    }
+
+    /// 判断给定的 Live/备份配置是否已被代理接管（包含占位符）
+    ///
+    /// 用途：检测"备份里存的其实是代理配置"这种异常历史状态。
+    /// 如果发现，备份不可信，备份路径不能写入（否则会把代理配置固化进备份槽），
+    /// 恢复路径不能读取（否则会把代理占位符原样写回 Live，永久卡在代理地址）。
+    /// 两种情况下都应该走 SSOT 兜底重建 Live。
+    fn live_has_proxy_placeholder_for_app(app_type: &AppType, config: &Value) -> bool {
+        match app_type {
+            AppType::Claude => Self::is_claude_live_taken_over(config),
+            AppType::Codex => Self::codex_live_has_proxy_placeholder(config),
+            AppType::Gemini => Self::is_gemini_live_taken_over(config),
+            _ => false,
+        }
     }
 
     /// 从供应商配置更新 Live 备份（用于代理模式下的热切换）
@@ -3274,5 +3324,706 @@ command = "latest-command"
             Some("latest-command"),
             "new MCP entries should remain in the restore backup"
         );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn provider_switch_with_restored_codex_backup_refreshes_catalog_and_common_config() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+        seed_codex_model_template();
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let state = crate::store::AppState::new(db.clone());
+
+        db.set_config_snippet(
+            "codex",
+            Some(
+                r#"[mcp_servers.shared]
+command = "shared-command"
+"#
+                .to_string(),
+            ),
+        )
+        .expect("set common config snippet");
+
+        let mut proxy_config = ProxyConfig::default();
+        proxy_config.listen_port = 0;
+        db.update_proxy_config(proxy_config)
+            .await
+            .expect("set test proxy config");
+        state
+            .proxy_service
+            .start()
+            .await
+            .expect("start proxy server");
+
+        let config_a = r#"model_provider = "provider-a"
+model = "model-a"
+
+[model_providers.provider-a]
+name = "ProviderA"
+base_url = "https://provider-a.example/v1"
+wire_api = "responses"
+requires_openai_auth = true
+"#;
+        let config_b = r#"model_provider = "provider-b"
+model = "model-b"
+
+[model_providers.provider-b]
+name = "ProviderB"
+base_url = "https://provider-b.example/v1"
+wire_api = "responses"
+requires_openai_auth = true
+"#;
+
+        let provider_a = Provider::with_id(
+            "a".to_string(),
+            "ProviderA".to_string(),
+            serde_json::json!({
+                "auth": { "OPENAI_API_KEY": "key-a" },
+                "config": config_a,
+                "modelCatalog": { "models": [{ "model": "model-a" }] }
+            }),
+            None,
+        );
+        let mut provider_b = Provider::with_id(
+            "b".to_string(),
+            "ProviderB".to_string(),
+            serde_json::json!({
+                "auth": { "OPENAI_API_KEY": "key-b" },
+                "config": config_b,
+                "modelCatalog": { "models": [{ "model": "model-b" }] }
+            }),
+            None,
+        );
+        provider_b.meta = Some(ProviderMeta {
+            common_config_enabled: Some(true),
+            ..Default::default()
+        });
+
+        db.save_provider("codex", &provider_a)
+            .expect("save provider a");
+        db.save_provider("codex", &provider_b)
+            .expect("save provider b");
+        db.set_current_provider("codex", "a")
+            .expect("set current provider a");
+        crate::settings::set_current_provider(&AppType::Codex, Some("a"))
+            .expect("set local current provider a");
+
+        state
+            .proxy_service
+            .write_codex_live_for_provider(&provider_a.settings_config, Some(&provider_a))
+            .expect("seed live codex config");
+        assert!(
+            !state
+                .proxy_service
+                .detect_takeover_in_live_config_for_app(&AppType::Codex),
+            "seeded live config should not be proxy-taken-over"
+        );
+
+        db.save_live_backup(
+            "codex",
+            &serde_json::to_string(&provider_a.settings_config).expect("serialize backup"),
+        )
+        .await
+        .expect("seed restored backup");
+
+        crate::services::provider::ProviderService::switch(&state, AppType::Codex, "b")
+            .expect("provider switch to provider b");
+        state.proxy_service.stop().await.expect("stop proxy server");
+
+        let catalog_path = crate::codex_config::get_codex_model_catalog_path();
+        assert!(
+            catalog_path.exists(),
+            "cc-switch-model-catalog.json must be created on provider switch"
+        );
+        let catalog_text = std::fs::read_to_string(&catalog_path).expect("read catalog json");
+        let catalog: serde_json::Value =
+            serde_json::from_str(&catalog_text).expect("parse catalog json");
+        let slugs: Vec<&str> = catalog
+            .get("models")
+            .and_then(|m| m.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|e| e.get("slug").and_then(|s| s.as_str()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        assert!(
+            slugs.contains(&"model-b"),
+            "catalog must contain provider B's model after switch; got: {slugs:?}"
+        );
+        assert!(
+            !slugs.contains(&"model-a"),
+            "catalog must not contain stale provider A model after switch; got: {slugs:?}"
+        );
+
+        let config_path = crate::codex_config::get_codex_config_path();
+        let config_text = std::fs::read_to_string(&config_path).expect("read config.toml");
+        assert!(
+            config_text.contains("model_catalog_json"),
+            "config.toml must reference model_catalog_json after switch"
+        );
+        assert!(
+            config_text.contains("[mcp_servers.shared]"),
+            "config.toml must keep common config after switch"
+        );
+        assert!(
+            config_text.contains(r#"command = "shared-command""#),
+            "config.toml must include common config content after switch"
+        );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn provider_switch_with_restored_codex_backup_propagates_catalog_write_errors() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+        seed_codex_model_template();
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let state = crate::store::AppState::new(db.clone());
+
+        let mut proxy_config = ProxyConfig::default();
+        proxy_config.listen_port = 0;
+        db.update_proxy_config(proxy_config)
+            .await
+            .expect("set test proxy config");
+        state
+            .proxy_service
+            .start()
+            .await
+            .expect("start proxy server");
+
+        let config_a = r#"model_provider = "provider-a"
+model = "model-a"
+
+[model_providers.provider-a]
+name = "ProviderA"
+base_url = "https://provider-a.example/v1"
+wire_api = "responses"
+requires_openai_auth = true
+"#;
+        let config_b = r#"model_provider = "provider-b"
+model = "model-b"
+
+[model_providers.provider-b]
+name = "ProviderB"
+base_url = "https://provider-b.example/v1"
+wire_api = "responses"
+requires_openai_auth = true
+"#;
+
+        let provider_a = Provider::with_id(
+            "a".to_string(),
+            "ProviderA".to_string(),
+            serde_json::json!({
+                "auth": { "OPENAI_API_KEY": "key-a" },
+                "config": config_a,
+                "modelCatalog": { "models": [{ "model": "model-a" }] }
+            }),
+            None,
+        );
+        let provider_b = Provider::with_id(
+            "b".to_string(),
+            "ProviderB".to_string(),
+            serde_json::json!({
+                "auth": { "OPENAI_API_KEY": "key-b" },
+                "config": config_b,
+                "modelCatalog": { "models": [{ "model": "model-b" }] }
+            }),
+            None,
+        );
+
+        db.save_provider("codex", &provider_a)
+            .expect("save provider a");
+        db.save_provider("codex", &provider_b)
+            .expect("save provider b");
+        db.set_current_provider("codex", "a")
+            .expect("set current provider a");
+        crate::settings::set_current_provider(&AppType::Codex, Some("a"))
+            .expect("set local current provider a");
+
+        state
+            .proxy_service
+            .write_codex_live_for_provider(&provider_a.settings_config, Some(&provider_a))
+            .expect("seed live codex config");
+        assert!(
+            !state
+                .proxy_service
+                .detect_takeover_in_live_config_for_app(&AppType::Codex),
+            "seeded live config should not be proxy-taken-over"
+        );
+
+        db.save_live_backup(
+            "codex",
+            &serde_json::to_string(&provider_a.settings_config).expect("serialize backup"),
+        )
+        .await
+        .expect("seed restored backup");
+
+        let catalog_path = crate::codex_config::get_codex_model_catalog_path();
+        if catalog_path.exists() {
+            std::fs::remove_file(&catalog_path).expect("remove catalog file");
+        }
+        std::fs::create_dir_all(&catalog_path).expect("turn catalog path into directory");
+
+        let err = crate::services::provider::ProviderService::switch(&state, AppType::Codex, "b")
+            .expect_err("provider switch should fail when catalog cannot be written");
+        state.proxy_service.stop().await.expect("stop proxy server");
+
+        let message = err.to_string();
+        assert!(
+            message.contains("写入 Codex 配置失败") || message.contains("原子替换失败"),
+            "switch should surface catalog write failure, got: {message}"
+        );
+    }
+
+    /// Regression: turning proxy takeover off restores Live from the backup. The
+    /// backup snapshot is `read_codex_live_settings()` output (`{auth, config}`,
+    /// never an inline `modelCatalog`). The restore must NOT route the config
+    /// through catalog projection, which would see no specs and strip the
+    /// `model_catalog_json` pointer — silently dropping the user's Codex model
+    /// mapping from Live even though the DB SSOT still holds it.
+    #[tokio::test]
+    #[serial]
+    async fn codex_restore_from_backup_preserves_model_catalog_pointer() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let service = ProxyService::new(db.clone());
+
+        // Pre-takeover Live state: config.toml points at the cc-switch generated
+        // catalog file, and that file exists on disk (takeover never touches it).
+        let catalog_path = crate::codex_config::get_codex_model_catalog_path();
+        if let Some(parent) = catalog_path.parent() {
+            std::fs::create_dir_all(parent).expect("create codex dir");
+        }
+        std::fs::write(
+            &catalog_path,
+            r#"{"models":[{"slug":"deepseek-v4-flash"}]}"#,
+        )
+        .expect("seed generated catalog file");
+
+        let pointer = catalog_path.to_string_lossy().to_string();
+        let backup_config = format!(
+            "model_provider = \"custom\"\n\
+             model = \"deepseek-v4-flash\"\n\
+             model_catalog_json = \"{pointer}\"\n\n\
+             [model_providers.custom]\n\
+             name = \"DeepSeek\"\n\
+             base_url = \"https://api.deepseek.example/v1\"\n\
+             wire_api = \"responses\"\n"
+        );
+        let backup_json = serde_json::to_string(&json!({
+            "auth": { "OPENAI_API_KEY": "deepseek-key" },
+            "config": backup_config,
+        }))
+        .expect("serialize backup");
+        db.save_live_backup("codex", &backup_json)
+            .await
+            .expect("seed live backup");
+
+        // Turning takeover off restores Live from this backup.
+        service
+            .restore_live_config_for_app_with_fallback(&AppType::Codex)
+            .await
+            .expect("restore codex live from backup");
+
+        let restored = std::fs::read_to_string(crate::codex_config::get_codex_config_path())
+            .expect("read restored config.toml");
+        assert!(
+            restored.contains("model_catalog_json"),
+            "restore must preserve the model_catalog_json pointer, got:\n{restored}"
+        );
+        assert!(
+            restored.contains(pointer.as_str()),
+            "restored pointer must still reference the cc-switch generated catalog file"
+        );
+    }
+
+    /// Regression: a hot-switch during takeover rebuilds the backup from the DB
+    /// provider (`update_live_backup_from_provider`), so the backup carries an
+    /// inline `modelCatalog` (DB SSOT) but a `config.toml` text WITHOUT a
+    /// `model_catalog_json` pointer. Restoring that backup must project the
+    /// inline catalog — (re)generating both the catalog file and the pointer —
+    /// or the Codex model mapping vanishes from Live after takeover-off.
+    #[tokio::test]
+    #[serial]
+    async fn codex_restore_from_backup_projects_inline_model_catalog() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let service = ProxyService::new(db.clone());
+
+        // Catalog projection needs a model template; seed `models_cache.json`
+        // with the template slug so we don't depend on the `codex` CLI.
+        let codex_dir = crate::codex_config::get_codex_config_dir();
+        std::fs::create_dir_all(&codex_dir).expect("create codex dir");
+        std::fs::write(
+            codex_dir.join("models_cache.json"),
+            r#"{"models":[{"slug":"gpt-5.5"}]}"#,
+        )
+        .expect("seed models_cache template");
+
+        // Provider-rebuilt backup shape: inline modelCatalog, pointer-less config.
+        let backup_json = serde_json::to_string(&json!({
+            "auth": { "OPENAI_API_KEY": "deepseek-key" },
+            "config": "model_provider = \"custom\"\nmodel = \"deepseek-v4-flash\"\n\n[model_providers.custom]\nname = \"DeepSeek\"\nbase_url = \"https://api.deepseek.example/v1\"\nwire_api = \"responses\"\n",
+            "modelCatalog": {
+                "models": [
+                    { "model": "deepseek-v4-flash", "displayName": "DeepSeek V4 Flash", "contextWindow": 1_000_000 }
+                ]
+            }
+        }))
+        .expect("serialize backup");
+        db.save_live_backup("codex", &backup_json)
+            .await
+            .expect("seed live backup");
+
+        service
+            .restore_live_config_for_app_with_fallback(&AppType::Codex)
+            .await
+            .expect("restore codex live from backup");
+
+        let restored = std::fs::read_to_string(crate::codex_config::get_codex_config_path())
+            .expect("read restored config.toml");
+        let catalog_path = crate::codex_config::get_codex_model_catalog_path();
+        assert!(
+            restored.contains("model_catalog_json"),
+            "restore must (re)generate the model_catalog_json pointer from inline catalog, got:\n{restored}"
+        );
+        assert!(
+            catalog_path.exists(),
+            "restore must generate the cc-switch catalog file on disk"
+        );
+        let catalog: Value = serde_json::from_str(
+            &std::fs::read_to_string(&catalog_path).expect("read generated catalog"),
+        )
+        .expect("parse generated catalog");
+        let slugs: Vec<&str> = catalog
+            .get("models")
+            .and_then(|m| m.as_array())
+            .expect("catalog models")
+            .iter()
+            .filter_map(|m| m.get("slug").and_then(|s| s.as_str()))
+            .collect();
+        assert!(
+            slugs.contains(&"deepseek-v4-flash"),
+            "generated catalog must contain the inline model, got slugs: {slugs:?}"
+        );
+    }
+
+    /// Regression: a provider-rebuilt backup can pair an inline `modelCatalog`
+    /// with EMPTY `auth.json` (`{}`) — the bearer-token / Mobile-compat shape
+    /// where the API key lives in the config's `experimental_bearer_token`. The
+    /// empty-auth restore branch deletes `auth.json` and writes config raw; it
+    /// must still project the inline catalog (decision is orthogonal to auth), or
+    /// the model mapping vanishes on takeover-off for this provider shape.
+    #[tokio::test]
+    #[serial]
+    async fn codex_restore_empty_auth_backup_still_projects_inline_catalog() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let service = ProxyService::new(db.clone());
+
+        let codex_dir = crate::codex_config::get_codex_config_dir();
+        std::fs::create_dir_all(&codex_dir).expect("create codex dir");
+        std::fs::write(
+            codex_dir.join("models_cache.json"),
+            r#"{"models":[{"slug":"gpt-5.5"}]}"#,
+        )
+        .expect("seed models_cache template");
+
+        // Empty auth.json + key carried in config.toml's experimental_bearer_token,
+        // plus the inline modelCatalog (DB SSOT).
+        let backup_json = serde_json::to_string(&json!({
+            "auth": {},
+            "config": "model_provider = \"custom\"\nmodel = \"deepseek-v4-flash\"\n\n[model_providers.custom]\nname = \"DeepSeek\"\nbase_url = \"https://api.deepseek.example/v1\"\nwire_api = \"responses\"\nexperimental_bearer_token = \"sk-deepseek\"\n",
+            "modelCatalog": {
+                "models": [ { "model": "deepseek-v4-flash", "displayName": "DeepSeek V4 Flash" } ]
+            }
+        }))
+        .expect("serialize backup");
+        db.save_live_backup("codex", &backup_json)
+            .await
+            .expect("seed live backup");
+
+        service
+            .restore_live_config_for_app_with_fallback(&AppType::Codex)
+            .await
+            .expect("restore codex live from backup");
+
+        let restored = std::fs::read_to_string(crate::codex_config::get_codex_config_path())
+            .expect("read restored config.toml");
+        assert!(
+            restored.contains("model_catalog_json"),
+            "empty-auth restore must still project the inline catalog pointer, got:\n{restored}"
+        );
+        assert!(
+            crate::codex_config::get_codex_model_catalog_path().exists(),
+            "empty-auth restore must generate the cc-switch catalog file"
+        );
+        assert!(
+            !crate::codex_config::get_codex_auth_path().exists(),
+            "empty-auth restore must delete auth.json rather than write an empty one"
+        );
+    }
+
+    /// Regression: when the backup row itself contains the proxy placeholder
+    /// (a corrupted state where previous start/stop cycles saved the proxy
+    /// config as the "original Live"), restore must NOT write it back to Live.
+    /// It should fall through to the SSOT (current provider) path and rebuild
+    /// Live from the provider DB instead.
+    #[tokio::test]
+    #[serial]
+    async fn restore_falls_through_to_ssot_when_backup_is_proxy_placeholder() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let service = ProxyService::new(db.clone());
+
+        // Seed DB with a current provider that has a real API key
+        let provider = Provider::with_id(
+            "p1".to_string(),
+            "P1".to_string(),
+            json!({
+                "env": {
+                    "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
+                    "ANTHROPIC_API_KEY": "real-key-from-db"
+                }
+            }),
+            None,
+        );
+        db.save_provider("claude", &provider)
+            .expect("save provider");
+        db.set_current_provider("claude", "p1")
+            .expect("set current provider");
+
+        // Seed backup with proxy placeholder (the corrupted state)
+        let corrupted_backup = serde_json::to_string(&json!({
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": PROXY_TOKEN_PLACEHOLDER,
+                "ANTHROPIC_BASE_URL": "http://127.0.0.1:15721"
+            }
+        }))
+        .expect("serialize corrupted backup");
+        db.save_live_backup("claude", &corrupted_backup)
+            .await
+            .expect("seed corrupted backup");
+
+        // Seed Live with the same proxy placeholder (matches the corrupted state)
+        service
+            .write_claude_live(&json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": PROXY_TOKEN_PLACEHOLDER,
+                    "ANTHROPIC_BASE_URL": "http://127.0.0.1:15721"
+                }
+            }))
+            .expect("seed taken-over live file");
+
+        // Restore: must NOT use the corrupted backup
+        service
+            .restore_live_config_for_app_with_fallback(&AppType::Claude)
+            .await
+            .expect("restore should succeed via SSOT");
+
+        // The backup should still be the corrupted one (we didn't touch it on this path)
+        let backup_after = db
+            .get_live_backup("claude")
+            .await
+            .expect("get backup")
+            .expect("backup still exists");
+        assert_eq!(
+            backup_after.original_config, corrupted_backup,
+            "restore must NOT overwrite the corrupted backup"
+        );
+
+        // Live should now reflect the SSOT (provider DB), NOT the proxy URL
+        let restored_live = service.read_claude_live().expect("read live");
+        let restored_url = restored_live
+            .get("env")
+            .and_then(|env| env.get("ANTHROPIC_BASE_URL"))
+            .and_then(|v| v.as_str());
+        assert_eq!(
+            restored_url,
+            Some("https://api.minimaxi.com/anthropic"),
+            "Live must be rebuilt from SSOT, not from the corrupted backup"
+        );
+        let restored_key = restored_live
+            .get("env")
+            .and_then(|env| env.get("ANTHROPIC_API_KEY"))
+            .and_then(|v| v.as_str());
+        assert_eq!(
+            restored_key,
+            Some("real-key-from-db"),
+            "Live must carry the real API key from the provider DB"
+        );
+        assert_ne!(
+            restored_live
+                .get("env")
+                .and_then(|env| env.get("ANTHROPIC_AUTH_TOKEN"))
+                .and_then(|v| v.as_str()),
+            Some(PROXY_TOKEN_PLACEHOLDER),
+            "Live must not still carry the proxy placeholder"
+        );
+    }
+
+    /// Regression: when Live is already a proxy placeholder (a corrupted state
+    /// where previous stop failed to restore), backup must NOT overwrite a
+    /// previously-good backup with the proxy config. This prevents the bug
+    /// where stop-then-start cycles permanently corrupt the backup.
+    #[tokio::test]
+    #[serial]
+    async fn backup_skips_when_live_is_already_proxy_placeholder() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let service = ProxyService::new(db.clone());
+
+        // Seed a GOOD backup (the "real" original Live)
+        let good_backup = serde_json::to_string(&json!({
+            "env": {
+                "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
+                "ANTHROPIC_AUTH_TOKEN": "real-token"
+            }
+        }))
+        .expect("serialize good backup");
+        db.save_live_backup("claude", &good_backup)
+            .await
+            .expect("seed good backup");
+
+        // Seed Live with proxy placeholder (the corrupted state)
+        service
+            .write_claude_live(&json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": PROXY_TOKEN_PLACEHOLDER,
+                    "ANTHROPIC_BASE_URL": "http://127.0.0.1:15721"
+                }
+            }))
+            .expect("seed taken-over live file");
+
+        // Call backup_live_config_strict: must skip
+        service
+            .backup_live_config_strict(&AppType::Claude)
+            .await
+            .expect("backup should succeed (no-op when live is placeholder)");
+
+        // The good backup must still be intact
+        let backup_after = db
+            .get_live_backup("claude")
+            .await
+            .expect("get backup")
+            .expect("backup still exists");
+        assert_eq!(
+            backup_after.original_config, good_backup,
+            "must not overwrite a good backup with a proxy placeholder"
+        );
+    }
+
+    /// Regression: when ALL apps have Live=proxy-placeholder (worst-case
+    /// corrupted state), the bulk `backup_live_configs` path used by
+    /// `start_with_takeover` must skip every save — instead of overwriting
+    /// good backups with the proxy config.
+    #[tokio::test]
+    #[serial]
+    async fn bulk_backup_skips_all_when_live_is_proxy_placeholder() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().expect("reload settings");
+
+        let db = Arc::new(Database::memory().expect("init db"));
+        let service = ProxyService::new(db.clone());
+
+        // Seed good backups for all three apps
+        let good_backup = serde_json::to_string(&json!({
+            "env": {
+                "ANTHROPIC_AUTH_TOKEN": "real-token"
+            }
+        }))
+        .expect("serialize good backup");
+        db.save_live_backup("claude", &good_backup)
+            .await
+            .expect("seed claude backup");
+
+        let codex_good_backup = serde_json::to_string(&json!({
+            "auth": { "OPENAI_API_KEY": "real-codex-token" }
+        }))
+        .expect("serialize codex good backup");
+        db.save_live_backup("codex", &codex_good_backup)
+            .await
+            .expect("seed codex backup");
+
+        let gemini_good_backup = serde_json::to_string(&json!({
+            "env": { "GEMINI_API_KEY": "real-gemini-key" }
+        }))
+        .expect("serialize gemini good backup");
+        db.save_live_backup("gemini", &gemini_good_backup)
+            .await
+            .expect("seed gemini backup");
+
+        // Seed all three Live files with proxy placeholders
+        service
+            .write_claude_live(&json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": PROXY_TOKEN_PLACEHOLDER,
+                    "ANTHROPIC_BASE_URL": "http://127.0.0.1:15721"
+                }
+            }))
+            .expect("seed claude live");
+        let codex_dir = crate::codex_config::get_codex_config_dir();
+        std::fs::create_dir_all(&codex_dir).expect("create codex dir");
+        std::fs::write(
+            crate::codex_config::get_codex_config_path(),
+            r#"model_provider = "custom"
+
+[model_providers.custom]
+name = "Custom"
+base_url = "http://127.0.0.1:15721/v1"
+wire_api = "chat"
+experimental_bearer_token = "PROXY_MANAGED"
+"#,
+        )
+        .expect("seed codex config.toml");
+        std::fs::write(
+            crate::codex_config::get_codex_auth_path(),
+            r#"{"OPENAI_API_KEY":"PROXY_MANAGED"}"#,
+        )
+        .expect("seed codex auth.json");
+        let gemini_env_path = crate::gemini_config::get_gemini_env_path();
+        if let Some(parent) = gemini_env_path.parent() {
+            std::fs::create_dir_all(parent).expect("create gemini dir");
+        }
+        std::fs::write(&gemini_env_path, "GEMINI_API_KEY=PROXY_MANAGED\n")
+            .expect("seed gemini env");
+
+        // Call bulk backup: must skip all three apps
+        service
+            .backup_live_configs()
+            .await
+            .expect("bulk backup should succeed (no-op when all live are placeholders)");
+
+        // All three good backups must still be intact
+        for (app_type, original) in [
+            ("claude", good_backup.as_str()),
+            ("codex", codex_good_backup.as_str()),
+            ("gemini", gemini_good_backup.as_str()),
+        ] {
+            let backup_after = db
+                .get_live_backup(app_type)
+                .await
+                .expect("get backup")
+                .expect("backup still exists");
+            assert_eq!(
+                backup_after.original_config, original,
+                "must not overwrite good backup for {app_type} with proxy placeholder"
+            );
+        }
     }
 }
