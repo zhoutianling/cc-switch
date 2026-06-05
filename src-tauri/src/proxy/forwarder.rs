@@ -1104,6 +1104,16 @@ impl RequestForwarder {
         } else {
             None
         };
+        if adapter.name() == "Claude" {
+            if let Some(api_format) = resolved_claude_api_format.as_deref() {
+                super::providers::normalize_anthropic_messages_for_provider(
+                    &mut mapped_body,
+                    provider,
+                    api_format,
+                );
+                self.apply_media_prevention(&mut mapped_body, provider);
+            }
+        }
         let needs_transform = match resolved_claude_api_format.as_deref() {
             Some(api_format) => super::providers::claude_api_format_needs_transform(api_format),
             None => adapter.needs_transform(provider),
