@@ -3,6 +3,7 @@
 
 import _claudeapi from "./ClaudeApi.png";
 import _byteplus from "./byteplus.png";
+import _ccsub from "./ccsub.svg?url";
 import _claudecn from "./claudecn.png";
 import _eflowcode from "./eflowcode.png";
 import _hermes from "./hermes.png";
@@ -88,6 +89,7 @@ export const icons: Record<string, string> = {
 
 export const iconUrls: Record<string, string> = {
   byteplus: _byteplus,
+  ccsub: _ccsub,
   claudeapi: _claudeapi,
   claudecn: _claudecn,
   eflowcode: _eflowcode,
