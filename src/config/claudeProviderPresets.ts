@@ -106,21 +106,6 @@ export const providerPresets: ProviderPreset[] = [
     icon: "shengsuanyun",
   },
   {
-    name: "CCSub",
-    websiteUrl: "https://www.ccsub.net",
-    apiKeyUrl: "https://www.ccsub.net/register?ref=Y6Z8DXEA",
-    settingsConfig: {
-      env: {
-        ANTHROPIC_BASE_URL: "https://www.ccsub.net",
-        ANTHROPIC_AUTH_TOKEN: "",
-      },
-    },
-    category: "aggregator",
-    isPartner: true,
-    partnerPromotionKey: "ccsub",
-    icon: "ccsub",
-  },
-  {
     name: "PatewayAI",
     websiteUrl: "https://pateway.ai",
     apiKeyUrl: "https://pateway.ai/?ch=etzpm8&aff=WB6M6F67#/",
@@ -203,6 +188,21 @@ export const providerPresets: ProviderPreset[] = [
     partnerPromotionKey: "doubaoseed",
     icon: "doubao",
     iconColor: "#3370FF",
+  },
+  {
+    name: "CCSub",
+    websiteUrl: "https://www.ccsub.net",
+    apiKeyUrl: "https://www.ccsub.net/register?ref=Y6Z8DXEA",
+    settingsConfig: {
+      env: {
+        ANTHROPIC_BASE_URL: "https://www.ccsub.net",
+        ANTHROPIC_AUTH_TOKEN: "",
+      },
+    },
+    category: "aggregator",
+    isPartner: true,
+    partnerPromotionKey: "ccsub",
+    icon: "ccsub",
   },
   {
     name: "Gemini Native",

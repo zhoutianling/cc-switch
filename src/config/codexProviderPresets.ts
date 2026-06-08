@@ -98,22 +98,6 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     icon: "shengsuanyun",
   },
   {
-    name: "CCSub",
-    websiteUrl: "https://www.ccsub.net",
-    apiKeyUrl: "https://www.ccsub.net/register?ref=Y6Z8DXEA",
-    category: "aggregator",
-    auth: generateThirdPartyAuth(""),
-    config: generateThirdPartyConfig(
-      "ccsub",
-      "https://www.ccsub.net/v1",
-      "gpt-5.5",
-    ),
-    endpointCandidates: ["https://www.ccsub.net/v1"],
-    isPartner: true,
-    partnerPromotionKey: "ccsub",
-    icon: "ccsub",
-  },
-  {
     name: "PatewayAI",
     websiteUrl: "https://pateway.ai",
     apiKeyUrl: "https://pateway.ai/?ch=etzpm8&aff=WB6M6F67#/",
@@ -128,6 +112,105 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     isPartner: true,
     partnerPromotionKey: "patewayai",
     icon: "pateway",
+  },
+  {
+    name: "火山Agentplan",
+    websiteUrl:
+      "https://www.volcengine.com/activity/agentplan?utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch",
+    apiKeyUrl:
+      "https://www.volcengine.com/activity/agentplan?utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch",
+    auth: generateThirdPartyAuth(""),
+    config: generateThirdPartyConfig(
+      "ark_agentplan",
+      "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "ark-code-latest",
+    ),
+    endpointCandidates: ["https://ark.cn-beijing.volces.com/api/coding/v3"],
+    apiFormat: "openai_chat",
+    modelCatalog: modelCatalog([
+      {
+        model: "ark-code-latest",
+        displayName: "Ark Code Latest",
+        contextWindow: 256000,
+      },
+    ]),
+    category: "cn_official",
+    isPartner: true,
+    partnerPromotionKey: "volcengine_agentplan",
+    icon: "huoshan",
+    iconColor: "#3370FF",
+  },
+  {
+    name: "BytePlus",
+    websiteUrl:
+      "https://www.byteplus.com/en/product/modelark?utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch",
+    apiKeyUrl:
+      "https://www.byteplus.com/en/product/modelark?utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch",
+    auth: generateThirdPartyAuth(""),
+    config: generateThirdPartyConfig(
+      "byteplus",
+      "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+      "ark-code-latest",
+    ),
+    endpointCandidates: [
+      "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+    ],
+    apiFormat: "openai_chat",
+    modelCatalog: modelCatalog([
+      {
+        model: "ark-code-latest",
+        displayName: "Ark Code Latest",
+        contextWindow: 256000,
+      },
+    ]),
+    category: "cn_official",
+    isPartner: true,
+    partnerPromotionKey: "byteplus",
+    icon: "byteplus",
+    iconColor: "#3370FF",
+  },
+  {
+    name: "DouBaoSeed",
+    websiteUrl:
+      "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D&utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch",
+    apiKeyUrl:
+      "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D&utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch",
+    auth: generateThirdPartyAuth(""),
+    config: generateThirdPartyConfig(
+      "doubaoseed",
+      "https://ark.cn-beijing.volces.com/api/v3",
+      "doubao-seed-2-0-code-preview-latest",
+    ),
+    endpointCandidates: ["https://ark.cn-beijing.volces.com/api/v3"],
+    apiFormat: "openai_chat",
+    modelCatalog: modelCatalog([
+      {
+        model: "doubao-seed-2-0-code-preview-latest",
+        displayName: "Doubao Seed Code Preview",
+        contextWindow: 256000,
+      },
+    ]),
+    category: "cn_official",
+    isPartner: true,
+    partnerPromotionKey: "doubaoseed",
+    icon: "doubao",
+    iconColor: "#3370FF",
+  },
+  {
+    name: "CCSub",
+    websiteUrl: "https://www.ccsub.net",
+    apiKeyUrl: "https://www.ccsub.net/register?ref=Y6Z8DXEA",
+    category: "aggregator",
+    auth: generateThirdPartyAuth(""),
+    config: generateThirdPartyConfig(
+      "ccsub",
+      "https://www.ccsub.net/v1",
+      "gpt-5.5",
+    ),
+    endpointCandidates: ["https://www.ccsub.net/v1"],
+    isPartner: true,
+    partnerPromotionKey: "ccsub",
+    icon: "ccsub",
   },
   {
     name: "Azure OpenAI",
