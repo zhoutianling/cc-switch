@@ -17,6 +17,10 @@
 use super::{AuthInfo, AuthStrategy, ProviderAdapter, ProviderType};
 use crate::provider::Provider;
 use crate::proxy::error::ProxyError;
+use serde_json::{json, Value};
+
+const ANTHROPIC_THINKING_PLACEHOLDER: &str = "tool call";
+const ANTHROPIC_REDACTED_THINKING_PLACEHOLDER: &str = "[redacted thinking]";
 
 /// 获取 Claude 供应商的 API 格式
 ///
@@ -85,6 +89,21 @@ pub fn claude_api_format_needs_transform(api_format: &str) -> bool {
 fn is_reasoning_content_compatible_identifier(value: &str) -> bool {
     let value = value.to_ascii_lowercase();
     value.contains("moonshot") || value.contains("kimi") || value.contains("deepseek")
+}
+
+fn should_normalize_anthropic_tool_thinking_history(
+    provider: &Provider,
+    body: &Value,
+    api_format: &str,
+) -> bool {
+    if api_format.trim() != "anthropic" {
+        return false;
+    }
+
+    body.get("model")
+        .and_then(|m| m.as_str())
+        .is_some_and(is_reasoning_content_compatible_identifier)
+        || should_preserve_reasoning_content_for_openai_chat(provider, body)
 }
 
 /// DeepSeek's Anthropic-compatible endpoint requires thinking history to be

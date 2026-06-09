@@ -1728,7 +1728,7 @@ impl ProxyService {
     fn live_has_proxy_placeholder_for_app(app_type: &AppType, config: &Value) -> bool {
         match app_type {
             AppType::Claude => Self::is_claude_live_taken_over(config),
-            AppType::Codex => Self::codex_live_has_proxy_placeholder(config),
+            AppType::Codex => Self::is_codex_live_taken_over(config),
             AppType::Gemini => Self::is_gemini_live_taken_over(config),
             _ => false,
         }

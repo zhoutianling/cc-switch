@@ -1111,7 +1111,6 @@ impl RequestForwarder {
                     provider,
                     api_format,
                 );
-                self.apply_media_prevention(&mut mapped_body, provider);
             }
         }
         let needs_transform = match resolved_claude_api_format.as_deref() {
