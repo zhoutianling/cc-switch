@@ -681,7 +681,7 @@ pub fn model_list_response(provider: &Provider) -> Result<Value, AppError> {
 }
 
 pub fn map_proxy_request_model(mut body: Value, provider: &Provider) -> Result<Value, AppError> {
-    let requested = body
+    let requested_raw = body
         .get("model")
         .and_then(Value::as_str)
         .map(str::trim)
@@ -694,19 +694,32 @@ pub fn map_proxy_request_model(mut body: Value, provider: &Provider) -> Result<V
                 "Claude Desktop request is missing the model field",
             )
         })?;
+    let requested = strip_one_m_suffix_for_route_lookup(&requested_raw);
 
     let routes = proxy_model_routes(provider)?;
     let route = routes.iter().find(|r| r.route_id == requested);
     let Some(route) = route else {
         return Err(AppError::localized(
             "claude_desktop.provider.route_unknown",
-            format!("Claude Desktop 模型路由未配置: {requested}"),
-            format!("Claude Desktop model route is not configured: {requested}"),
+            format!("Claude Desktop 模型路由未配置: {requested_raw}"),
+            format!("Claude Desktop model route is not configured: {requested_raw}"),
         ));
     };
 
     body["model"] = json!(route.upstream_model);
     Ok(body)
+}
+
+fn strip_one_m_suffix_for_route_lookup(model: &str) -> &str {
+    let trimmed = model.trim();
+    let marker = ONE_M_CONTEXT_MARKER.as_bytes();
+    let bytes = trimmed.as_bytes();
+    if bytes.len() >= marker.len()
+        && bytes[bytes.len() - marker.len()..].eq_ignore_ascii_case(marker)
+    {
+        return trimmed[..trimmed.len() - marker.len()].trim_end();
+    }
+    trimmed
 }
 
 pub fn proxy_gateway_base_url_from_db(db: &Database) -> Result<String, AppError> {
