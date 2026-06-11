@@ -287,13 +287,6 @@ export const iconMetadata: Record<string, IconMetadata> = {
     keywords: ["gpt", "chatgpt"],
     defaultColor: "currentColor",
   },
-  hermes: {
-    name: "hermes",
-    displayName: "Hermes",
-    category: "ai-provider",
-    keywords: ["hermes", "agent", "nous", "nousresearch"],
-    defaultColor: "#000000",
-  },
   lemondata: {
     name: "lemondata",
     displayName: "LemonData",

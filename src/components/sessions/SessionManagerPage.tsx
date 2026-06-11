@@ -61,8 +61,7 @@ type ProviderFilter =
   | "codex"
   | "claude"
   | "opencode"
-  | "gemini"
-  | "hermes";
+  | "gemini";
 
 export function SessionManagerPage({ appId }: { appId: string }) {
   const { t } = useTranslation();

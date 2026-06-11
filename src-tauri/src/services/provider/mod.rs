@@ -35,9 +35,7 @@ pub(crate) use live::{
 };
 
 // Internal re-exports
-use live::{
-    remove_hermes_provider_from_live, remove_opencode_provider_from_live, write_gemini_live,
-};
+use live::{remove_opencode_provider_from_live, write_gemini_live};
 use usage::validate_usage_script;
 
 /// Provider business logic service
@@ -1137,7 +1135,6 @@ impl ProviderService {
             if Self::check_live_config_exists(&app_type, id, live_managed)? {
                 match app_type {
                     AppType::OpenCode => remove_opencode_provider_from_live(id)?,
-                    AppType::Hermes => remove_hermes_provider_from_live(id)?,
                     _ => {}
                 }
             }
@@ -1196,9 +1193,6 @@ impl ProviderService {
                 } else {
                     remove_opencode_provider_from_live(id)?;
                 }
-            }
-            AppType::Hermes => {
-                remove_hermes_provider_from_live(id)?;
             }
             _ => {
                 return Err(AppError::Message(format!(
@@ -1378,25 +1372,6 @@ impl ProviderService {
         // Sync to live (write_gemini_live handles security flag internally for Gemini)
         write_live_with_common_config(state.db.as_ref(), &app_type, provider)?;
 
-        // Hermes is additive, so "switching" doesn't overwrite a live config file
-        // — we instead update the top-level `model:` section to point at this
-        // provider's first declared model. Without this, clicking "switch" would
-        // only shuffle entries in custom_providers[] while Hermes keeps using
-        // whatever `model.provider` was set before.
-        if matches!(app_type, AppType::Hermes) {
-            if let Err(e) =
-                crate::hermes_config::apply_switch_defaults(&provider.id, &provider.settings_config)
-            {
-                log::warn!(
-                    "Failed to update Hermes model defaults after switching to '{}': {e}",
-                    provider.id
-                );
-                result
-                    .warnings
-                    .push(format!("hermes_model_defaults_failed:{}", provider.id));
-            }
-        }
-
         // For additive-mode providers that were DB-only (live_config_managed == Some(false)),
         // flip the flag to true now that the provider has been successfully written to the live
         // file. This ensures sync_all_providers_to_live() will include it on future syncs.
@@ -1410,7 +1385,6 @@ impl ProviderService {
             if let Err(e) = state.db.save_provider(app_type.as_str(), &updated) {
                 let rollback_result = match app_type {
                     AppType::OpenCode => remove_opencode_provider_from_live(&provider.id),
-                    AppType::Hermes => remove_hermes_provider_from_live(&provider.id),
                     _ => Ok(()),
                 };
 
@@ -1587,7 +1561,6 @@ impl ProviderService {
             AppType::Codex => Self::extract_codex_common_config(&provider.settings_config),
             AppType::Gemini => Self::extract_gemini_common_config(&provider.settings_config),
             AppType::OpenCode => Self::extract_opencode_common_config(&provider.settings_config),
-            AppType::Hermes => Ok(String::new()), // Hermes doesn't use common config snippets
         }
     }
 
@@ -1602,7 +1575,6 @@ impl ProviderService {
             AppType::Codex => Self::extract_codex_common_config(settings_config),
             AppType::Gemini => Self::extract_gemini_common_config(settings_config),
             AppType::OpenCode => Self::extract_opencode_common_config(settings_config),
-            AppType::Hermes => Ok(String::new()), // Hermes doesn't use common config snippets
         }
     }
 
@@ -1949,16 +1921,6 @@ impl ProviderService {
                     ));
                 }
             }
-            AppType::Hermes => {
-                // Hermes: accept any JSON object for now
-                if !provider.settings_config.is_object() {
-                    return Err(AppError::localized(
-                        "provider.hermes.settings.not_object",
-                        "Hermes 配置必须是 JSON 对象",
-                        "Hermes configuration must be a JSON object",
-                    ));
-                }
-            }
         }
 
         // Validate and clean UsageScript configuration (common for all app types)
@@ -2135,29 +2097,6 @@ impl ProviderService {
 
                 let base_url = options
                     .get("baseURL")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                Ok((api_key, base_url))
-            }
-            AppType::Hermes => {
-                let api_key = provider
-                    .settings_config
-                    .get("apiKey")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        AppError::localized(
-                            "provider.hermes.api_key.missing",
-                            "缺少 API Key",
-                            "API key is missing",
-                        )
-                    })?
-                    .to_string();
-
-                let base_url = provider
-                    .settings_config
-                    .get("baseUrl")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();

@@ -1852,7 +1852,6 @@ fn strip_claude_desktop_non_anthropic_prefix(model_id: &str) -> Option<String> {
         "glm",
         "gpt",
         "grok",
-        "hermes",
         "hy3",
         "hunyuan",
         "jamba",

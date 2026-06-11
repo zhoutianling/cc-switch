@@ -41,7 +41,6 @@ const NON_ANTHROPIC_ROUTE_MARKERS: &[&str] = &[
     "glm",
     "gpt",
     "grok",
-    "hermes",
     "hy3",
     "kimi",
     "lfm",

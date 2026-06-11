@@ -127,7 +127,6 @@ const NON_ANTHROPIC_ROUTE_MARKERS = [
   "glm",
   "gpt",
   "grok",
-  "hermes",
   "hy3",
   "kimi",
   "lfm",

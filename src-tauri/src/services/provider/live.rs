@@ -42,8 +42,6 @@ pub(crate) fn provider_exists_in_live_config(
     match app_type {
         AppType::OpenCode => crate::opencode_config::get_providers()
             .map(|providers| providers.contains_key(provider_id)),
-        AppType::Hermes => crate::hermes_config::get_providers()
-            .map(|providers| providers.contains_key(provider_id)),
         _ => Ok(false),
     }
 }
@@ -347,7 +345,7 @@ fn settings_contain_common_config(app_type: &AppType, settings: &Value, snippet:
             }
             _ => false,
         },
-        AppType::OpenCode | AppType::Hermes | AppType::ClaudeDesktop => false,
+        AppType::OpenCode | AppType::ClaudeDesktop => false,
     }
 }
 
@@ -417,7 +415,7 @@ pub(crate) fn remove_common_config_from_settings(
             }
             Ok(result)
         }
-        AppType::OpenCode | AppType::Hermes | AppType::ClaudeDesktop => {
+        AppType::OpenCode | AppType::ClaudeDesktop => {
             Ok(settings.clone())
         }
     }
@@ -474,7 +472,7 @@ fn apply_common_config_to_settings(
             }
             Ok(result)
         }
-        AppType::OpenCode | AppType::Hermes | AppType::ClaudeDesktop => {
+        AppType::OpenCode | AppType::ClaudeDesktop => {
             Ok(settings.clone())
         }
     }
@@ -794,10 +792,6 @@ pub(crate) fn write_live_snapshot(app_type: &AppType, provider: &Provider) -> Re
                 }
             }
         }
-        AppType::Hermes => {
-            crate::hermes_config::set_provider(&provider.id, provider.settings_config.clone())?;
-            log::debug!("Hermes provider '{}' written to live config", provider.id);
-        }
     }
     Ok(())
 }
@@ -983,19 +977,6 @@ pub fn read_live_settings(app_type: AppType) -> Result<Value, AppError> {
             let config = read_opencode_config()?;
             Ok(config)
         }
-        AppType::Hermes => {
-            let config_path = crate::hermes_config::get_hermes_config_path();
-            if !config_path.exists() {
-                return Err(AppError::localized(
-                    "hermes.config.missing",
-                    "Hermes 配置文件不存在",
-                    "Hermes configuration file not found",
-                ));
-            }
-            let yaml_config = crate::hermes_config::read_hermes_config()?;
-            let config = crate::hermes_config::yaml_to_json(&yaml_config)?;
-            Ok(config)
-        }
     }
 }
 
@@ -1085,8 +1066,8 @@ pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool
                 "config": config_obj
             })
         }
-        // OpenCode and Hermes use additive mode and are handled by early return above
-        AppType::OpenCode | AppType::Hermes => {
+        // OpenCode uses additive mode and is handled by early return above
+        AppType::OpenCode => {
             unreachable!("additive mode apps are handled by early return")
         }
     };
@@ -1280,25 +1261,6 @@ pub fn import_opencode_providers_from_live(state: &AppState) -> Result<usize, Ap
     }
 
     Ok(imported)
-}
-
-/// Remove a Hermes provider from live config
-///
-/// This removes a specific provider from ~/.hermes/config.yaml
-/// without affecting other providers in the file.
-pub fn remove_hermes_provider_from_live(provider_id: &str) -> Result<(), AppError> {
-    use crate::hermes_config;
-
-    // Check if Hermes config directory exists
-    if !hermes_config::get_hermes_dir().exists() {
-        log::debug!("Hermes config directory doesn't exist, skipping removal of '{provider_id}'");
-        return Ok(());
-    }
-
-    hermes_config::remove_provider(provider_id)?;
-    log::info!("Hermes provider '{provider_id}' removed from live config");
-
-    Ok(())
 }
 
 #[cfg(test)]
