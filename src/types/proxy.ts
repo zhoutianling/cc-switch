@@ -48,7 +48,6 @@ export interface ProxyTakeoverStatus {
   gemini: boolean;
   opencode: boolean;
   openclaw: boolean;
-  hermes: boolean;
 }
 
 export interface ProviderHealth {

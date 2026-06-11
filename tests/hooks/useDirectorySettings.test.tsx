@@ -70,7 +70,7 @@ describe("useDirectorySettings", () => {
       if (app === "gemini") return "/remote/gemini";
       if (app === "opencode") return "/remote/opencode";
       if (app === "openclaw") return "/remote/openclaw";
-      return "/remote/hermes";
+      return "";
     });
     selectConfigDirectoryMock.mockReset();
   });
@@ -92,7 +92,6 @@ describe("useDirectorySettings", () => {
       gemini: "/remote/gemini",
       opencode: "/remote/opencode",
       openclaw: "/remote/openclaw",
-      hermes: "/remote/hermes",
     });
   });
 

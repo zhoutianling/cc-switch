@@ -143,8 +143,8 @@ export interface UsageRangeSelection {
  *
  * The proxy has handlers for `claude-desktop` too, but in practice those
  * requests overwhelmingly fail (500/503) and contribute near-zero tokens, so
- * it is hidden from the Dashboard. `opencode` / `openclaw` / `hermes` have
- * no proxy handler at all — they appear only as managed apps elsewhere.
+ * it is hidden from the Dashboard. `opencode` / `openclaw` have no proxy
+ * handler at all and appear only as managed apps elsewhere.
  */
 export type AppType = "claude" | "codex" | "gemini";
 

@@ -37,8 +37,6 @@ interface ProviderActionsProps {
   isInFailoverQueue?: boolean;
   onToggleFailover?: (enabled: boolean) => void;
   isOfficialBlockedByProxy?: boolean;
-  // Hermes v12+ providers: dict overlay — edit/delete must go through Web UI
-  isReadOnly?: boolean;
   // OpenClaw: default model
   isDefaultModel?: boolean;
   onSetAsDefault?: () => void;
@@ -76,7 +74,6 @@ export function ProviderActions({
   isInFailoverQueue = false,
   onToggleFailover,
   isOfficialBlockedByProxy = false,
-  isReadOnly = false,
   // OpenClaw: default model
   isDefaultModel = false,
   onSetAsDefault,
@@ -84,11 +81,9 @@ export function ProviderActions({
   const { t } = useTranslation();
   const iconButtonClass = "h-8 w-8 p-1";
 
-  // 累加模式应用（OpenCode 非 OMO / OpenClaw / Hermes）
+  // 累加模式应用（OpenCode 非 OMO / OpenClaw）
   const isAdditiveMode =
-    (appId === "opencode" && !isOmo) ||
-    appId === "openclaw" ||
-    appId === "hermes";
+    (appId === "opencode" && !isOmo) || appId === "openclaw";
 
   // 故障转移模式下的按钮逻辑（累加模式和 OMO 应用不支持故障转移）
   const isFailoverMode =
@@ -220,24 +215,20 @@ export function ProviderActions({
 
   const buttonState = getMainButtonState();
 
-  const canDelete =
-    !isReadOnly && (isOmo || isAdditiveMode ? true : !isCurrent);
-  const readOnlyHint = t("provider.managedByHermesHint", {
-    defaultValue: "由 Hermes 管理，请在 Hermes Web UI 中编辑",
-  });
+  const canDelete = isOmo || isAdditiveMode ? true : !isCurrent;
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
-      {(appId === "openclaw" || appId === "hermes") &&
+      {appId === "openclaw" &&
         isInConfig &&
         onSetAsDefault &&
         (() => {
           const activeLabel =
-            appId === "hermes"
+            false
               ? t("provider.inUse", { defaultValue: "已在用" })
               : t("provider.isDefault", { defaultValue: "当前默认" });
           const inactiveLabel =
-            appId === "hermes"
+            false
               ? t("provider.enable", { defaultValue: "启用" })
               : t("provider.setAsDefault", { defaultValue: "设为默认" });
           return (
@@ -284,13 +275,9 @@ export function ProviderActions({
         <Button
           size="icon"
           variant="ghost"
-          onClick={isReadOnly ? undefined : onEdit}
-          disabled={isReadOnly}
-          title={isReadOnly ? readOnlyHint : t("common.edit")}
-          className={cn(
-            iconButtonClass,
-            isReadOnly && "opacity-40 cursor-not-allowed text-muted-foreground",
-          )}
+          onClick={onEdit}
+          title={t("common.edit")}
+          className={iconButtonClass}
         >
           <Edit className="h-4 w-4" />
         </Button>
@@ -356,7 +343,7 @@ export function ProviderActions({
           size="icon"
           variant="ghost"
           onClick={canDelete ? onDelete : undefined}
-          title={isReadOnly ? readOnlyHint : t("common.delete")}
+          title={t("common.delete")}
           className={cn(
             iconButtonClass,
             canDelete && "hover:text-red-500 dark:hover:text-red-400",

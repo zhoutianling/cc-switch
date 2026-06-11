@@ -92,7 +92,7 @@ export function useProviderActions(
             const mergedCatalog = { ...existingCatalog, ...modelCatalog };
             await openclawApi.setModelCatalog(mergedCatalog);
             await queryClient.invalidateQueries({
-              queryKey: openclawKeys.health,
+              queryKey: openclawKeys.defaultModel,
             });
             modelsRegistered = true;
           }
@@ -103,7 +103,7 @@ export function useProviderActions(
             if (!existingDefault?.primary) {
               await openclawApi.setDefaultModel(model);
               await queryClient.invalidateQueries({
-                queryKey: openclawKeys.health,
+                queryKey: openclawKeys.defaultModel,
               });
             }
           }
@@ -347,9 +347,6 @@ export function useProviderActions(
         await openclawApi.setDefaultModel(model);
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.defaultModel,
-        });
-        await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
         });
         toast.success(
           t("notifications.openclawDefaultModelSet", {

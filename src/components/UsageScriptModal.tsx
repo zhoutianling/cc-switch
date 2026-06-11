@@ -184,12 +184,6 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
           apiKey: env.GEMINI_API_KEY,
           baseUrl: env.GOOGLE_GEMINI_BASE_URL,
         };
-      } else if (appId === "hermes") {
-        // Hermes: settingsConfig 顶层扁平（snake_case，对应 config.yaml）
-        return {
-          apiKey: (config as any).api_key,
-          baseUrl: (config as any).base_url,
-        };
       } else if (appId === "openclaw") {
         // OpenClaw: settingsConfig 顶层扁平（camelCase，对应 openclaw.json）
         return {
@@ -334,8 +328,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
     setShowUsageConfirm(false);
     try {
       if (settingsData) {
-        const { webdavSync: _, ...rest } = settingsData;
-        await settingsApi.save({ ...rest, usageConfirmed: true });
+        await settingsApi.save({ ...settingsData, usageConfirmed: true });
         await queryClient.invalidateQueries({ queryKey: ["settings"] });
       }
     } catch (error) {

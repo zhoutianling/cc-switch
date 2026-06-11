@@ -112,7 +112,6 @@ export function useSettings(): UseSettingsResult {
       gemini: sanitizeDir(data?.geminiConfigDir),
       opencode: sanitizeDir(data?.opencodeConfigDir),
       openclaw: sanitizeDir(data?.openclawConfigDir),
-      hermes: sanitizeDir(data?.hermesConfigDir),
     });
     setRequiresRestart(false);
   }, [
@@ -193,11 +192,8 @@ export function useSettings(): UseSettingsResult {
         const sanitizedOpenclawDir = sanitizeDir(
           mergedSettings.openclawConfigDir,
         );
-        const { webdavSync: _ignoredWebdavSync, ...restSettings } =
-          mergedSettings;
-
         const payload: Settings = {
-          ...restSettings,
+          ...mergedSettings,
           claudeConfigDir: sanitizedClaudeDir,
           codexConfigDir: sanitizedCodexDir,
           geminiConfigDir: sanitizedGeminiDir,
@@ -327,11 +323,8 @@ export function useSettings(): UseSettingsResult {
         const previousGeminiDir = sanitizeDir(data?.geminiConfigDir);
         const previousOpencodeDir = sanitizeDir(data?.opencodeConfigDir);
         const previousOpenclawDir = sanitizeDir(data?.openclawConfigDir);
-        const { webdavSync: _ignoredWebdavSync, ...restSettings } =
-          mergedSettings;
-
         const payload: Settings = {
-          ...restSettings,
+          ...mergedSettings,
           claudeConfigDir: sanitizedClaudeDir,
           codexConfigDir: sanitizedCodexDir,
           geminiConfigDir: sanitizedGeminiDir,

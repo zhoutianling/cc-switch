@@ -10,7 +10,6 @@ mod deeplink;
 mod env;
 mod failover;
 mod global_proxy;
-mod hermes;
 mod import_export;
 mod mcp;
 mod misc;
@@ -30,8 +29,6 @@ mod sync_support;
 
 mod lightweight;
 mod usage;
-mod webdav_sync;
-mod workspace;
 
 pub use auth::*;
 pub use balance::*;
@@ -43,7 +40,6 @@ pub use deeplink::*;
 pub use env::*;
 pub use failover::*;
 pub use global_proxy::*;
-pub use hermes::*;
 pub use import_export::*;
 pub use mcp::*;
 pub use misc::*;
@@ -62,5 +58,3 @@ pub use subscription::*;
 
 pub use lightweight::*;
 pub use usage::*;
-pub use webdav_sync::*;
-pub use workspace::*;

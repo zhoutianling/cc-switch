@@ -8,7 +8,6 @@ import type { Provider, SessionMeta, Settings } from "@/types";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { generateUUID } from "@/utils/uuid";
 import { openclawKeys } from "@/hooks/useOpenClaw";
-import { invalidateHermesProviderCaches } from "@/hooks/useHermes";
 
 export const useAddProviderMutation = (appId: AppId) => {
   const queryClient = useQueryClient();
@@ -23,7 +22,7 @@ export const useAddProviderMutation = (appId: AppId) => {
     ) => {
       let id: string;
 
-      if (appId === "opencode" || appId === "openclaw" || appId === "hermes") {
+      if (appId === "opencode" || appId === "openclaw") {
         if (
           providerInput.category === "omo" ||
           providerInput.category === "omo-slim"
@@ -72,12 +71,11 @@ export const useAddProviderMutation = (appId: AppId) => {
 
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: openclawKeys.liveProviderIds,
         });
-      }
-
-      if (appId === "hermes") {
-        await invalidateHermesProviderCaches(queryClient);
+        await queryClient.invalidateQueries({
+          queryKey: openclawKeys.defaultModel,
+        });
       }
 
       try {
@@ -129,11 +127,11 @@ export const useUpdateProviderMutation = (appId: AppId) => {
       await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: openclawKeys.liveProviderIds,
         });
-      }
-      if (appId === "hermes") {
-        await invalidateHermesProviderCaches(queryClient);
+        await queryClient.invalidateQueries({
+          queryKey: openclawKeys.defaultModel,
+        });
       }
       toast.success(
         t("notifications.updateSuccess", {
@@ -184,12 +182,11 @@ export const useDeleteProviderMutation = (appId: AppId) => {
 
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: openclawKeys.liveProviderIds,
         });
-      }
-
-      if (appId === "hermes") {
-        await invalidateHermesProviderCaches(queryClient);
+        await queryClient.invalidateQueries({
+          queryKey: openclawKeys.defaultModel,
+        });
       }
 
       try {
@@ -258,14 +255,7 @@ export const useSwitchProviderMutation = (appId: AppId) => {
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.defaultModel,
         });
-        await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
-        });
       }
-      if (appId === "hermes") {
-        await invalidateHermesProviderCaches(queryClient);
-      }
-
       try {
         await providersApi.updateTrayMenu();
       } catch (trayError) {

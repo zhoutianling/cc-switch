@@ -220,45 +220,6 @@ export interface VisibleApps {
   gemini: boolean;
   opencode: boolean;
   openclaw: boolean;
-  hermes: boolean;
-}
-
-// WebDAV 同步状态
-export interface WebDavSyncStatus {
-  lastSyncAt?: number | null;
-  lastError?: string | null;
-  lastErrorSource?: string | null;
-  lastRemoteEtag?: string | null;
-  lastLocalManifestHash?: string | null;
-  lastRemoteManifestHash?: string | null;
-}
-
-// WebDAV 同步配置
-export interface WebDavSyncSettings {
-  enabled?: boolean;
-  autoSync?: boolean;
-  baseUrl?: string;
-  username?: string;
-  password?: string;
-  remoteRoot?: string;
-  profile?: string;
-  status?: WebDavSyncStatus;
-}
-
-export type RemoteSnapshotLayout = "current" | "legacy";
-
-// 远端快照信息（下载前预览）
-export interface RemoteSnapshotInfo {
-  deviceName: string;
-  createdAt: string;
-  snapshotId: string;
-  version: number;
-  protocolVersion: number;
-  dbCompatVersion?: number | null;
-  compatible: boolean;
-  artifacts: string[];
-  layout: RemoteSnapshotLayout;
-  remotePath: string;
 }
 
 // 应用设置类型（用于设置对话框与 Tauri API）
@@ -293,8 +254,6 @@ export interface Settings {
   failoverConfirmed?: boolean;
   // User has confirmed the first-run welcome notice
   firstRunNoticeConfirmed?: boolean;
-  // User has confirmed the auto-sync traffic warning
-  autoSyncConfirmed?: boolean;
   // User has confirmed the common config first-run notice
   commonConfigConfirmed?: boolean;
   // 首选语言（可选，默认中文）
@@ -314,8 +273,6 @@ export interface Settings {
   opencodeConfigDir?: string;
   // 覆盖 OpenClaw 配置目录（可选）
   openclawConfigDir?: string;
-  // 覆盖 Hermes 配置目录（可选）
-  hermesConfigDir?: string;
 
   // ===== 当前供应商 ID（设备级）=====
   // 当前 Claude 供应商 ID（优先于数据库 is_current）
@@ -332,9 +289,6 @@ export interface Settings {
   skillSyncMethod?: SkillSyncMethod;
   // Skill 存储位置：cc_switch（默认）或 unified（~/.agents/skills/）
   skillStorageLocation?: SkillStorageLocation;
-
-  // ===== WebDAV v2 同步设置 =====
-  webdavSync?: WebDavSyncSettings;
 
   // ===== 备份策略设置 =====
   // Auto-backup interval in hours (0=disabled, default 24)
@@ -392,7 +346,6 @@ export interface McpApps {
   gemini: boolean;
   opencode: boolean;
   openclaw: boolean;
-  hermes: boolean;
 }
 
 // MCP 服务器条目（v3.7.0 统一结构）
@@ -574,8 +527,6 @@ export interface OpenClawWriteOutcome {
   warnings: OpenClawHealthWarning[];
 }
 
-export type OpenClawToolsProfile = "minimal" | "coding" | "messaging" | "full";
-
 // OpenClaw 供应商配置（settings_config 结构）
 // 对应 OpenClaw 的 models.providers.<provider-id> 配置
 export interface OpenClawProviderConfig {
@@ -588,45 +539,5 @@ export interface OpenClawProviderConfig {
 }
 
 // OpenClaw agents.defaults 完整配置
-export interface OpenClawAgentsDefaults {
-  model?: OpenClawDefaultModel;
-  models?: Record<string, OpenClawModelCatalogEntry>;
-  timeoutSeconds?: number;
-  timeout?: number;
-  [key: string]: unknown; // preserve unknown fields
-}
-
 // OpenClaw env 配置（openclaw.json 的 env 节点）
-export interface OpenClawEnvConfig {
-  [key: string]: unknown;
-}
-
 // OpenClaw tools 配置（openclaw.json 的 tools 节点）
-export interface OpenClawToolsConfig {
-  profile?: OpenClawToolsProfile | string;
-  allow?: string[];
-  deny?: string[];
-  [key: string]: unknown; // preserve unknown fields
-}
-
-// ============================================================================
-// Hermes Agent 专属配置
-// ============================================================================
-
-export interface HermesModelConfig {
-  default?: string;
-  provider?: string;
-  base_url?: string;
-  context_length?: number;
-  max_tokens?: number;
-  [key: string]: unknown;
-}
-
-export type HermesMemoryKind = "memory" | "user";
-
-export interface HermesMemoryLimits {
-  memory: number;
-  user: number;
-  memoryEnabled: boolean;
-  userEnabled: boolean;
-}

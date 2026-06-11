@@ -461,7 +461,6 @@ describe("useSettings hook", () => {
       gemini: "/server/gemini",
       opencode: "/server/opencode",
       openclaw: "/server/openclaw",
-      hermes: undefined,
     });
     expect(metadataMock.setRequiresRestart).toHaveBeenCalledWith(false);
   });

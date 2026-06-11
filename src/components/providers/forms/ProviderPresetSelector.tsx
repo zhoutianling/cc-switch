@@ -8,7 +8,6 @@ import type { GeminiProviderPreset } from "@/config/geminiProviderPresets";
 import type { ClaudeDesktopProviderPreset } from "@/config/claudeDesktopProviderPresets";
 import type { OpenCodeProviderPreset } from "@/config/opencodeProviderPresets";
 import type { OpenClawProviderPreset } from "@/config/openclawProviderPresets";
-import type { HermesProviderPreset } from "@/config/hermesProviderPresets";
 import type { ProviderCategory } from "@/types";
 import {
   universalProviderPresets,
@@ -22,8 +21,7 @@ type AnyPreset =
   | GeminiProviderPreset
   | ClaudeDesktopProviderPreset
   | OpenCodeProviderPreset
-  | OpenClawProviderPreset
-  | HermesProviderPreset;
+  | OpenClawProviderPreset;
 
 type PresetEntry = {
   id: string;

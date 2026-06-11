@@ -67,10 +67,9 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
     gemini: boolean;
     opencode: boolean;
     openclaw: boolean;
-    hermes: boolean;
   }>(() => {
     if (initialData?.apps) {
-      return { ...initialData.apps };
+      return initialData.apps;
     }
     return {
       claude: defaultEnabledApps.includes("claude"),
@@ -78,7 +77,6 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
       gemini: defaultEnabledApps.includes("gemini"),
       opencode: defaultEnabledApps.includes("opencode"),
       openclaw: defaultEnabledApps.includes("openclaw"),
-      hermes: defaultEnabledApps.includes("hermes"),
     };
   });
 
@@ -579,22 +577,6 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     className="text-sm text-foreground cursor-pointer select-none"
                   >
                     {t("mcp.unifiedPanel.apps.opencode")}
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-hermes"
-                    checked={enabledApps.hermes}
-                    onCheckedChange={(checked: boolean) =>
-                      setEnabledApps({ ...enabledApps, hermes: checked })
-                    }
-                  />
-                  <label
-                    htmlFor="enable-hermes"
-                    className="text-sm text-foreground cursor-pointer select-none"
-                  >
-                    {t("mcp.unifiedPanel.apps.hermes")}
                   </label>
                 </div>
               </div>

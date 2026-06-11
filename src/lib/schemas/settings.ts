@@ -34,28 +34,6 @@ export const settingsSchema = z.object({
   skillSyncMethod: z.enum(["auto", "symlink", "copy"]).optional(),
   skillStorageLocation: z.enum(["cc_switch", "unified"]).optional(),
 
-  // WebDAV v2 同步设置（通过专用命令保存，schema 仅用于读取）
-  webdavSync: z
-    .object({
-      enabled: z.boolean().optional(),
-      autoSync: z.boolean().optional(),
-      baseUrl: z.string().trim().optional().or(z.literal("")),
-      username: z.string().trim().optional().or(z.literal("")),
-      password: z.string().optional(),
-      remoteRoot: z.string().trim().optional().or(z.literal("")),
-      profile: z.string().trim().optional().or(z.literal("")),
-      status: z
-        .object({
-          lastSyncAt: z.number().nullable().optional(),
-          lastError: z.string().nullable().optional(),
-          lastErrorSource: z.string().nullable().optional(),
-          lastRemoteEtag: z.string().nullable().optional(),
-          lastLocalManifestHash: z.string().nullable().optional(),
-          lastRemoteManifestHash: z.string().nullable().optional(),
-        })
-        .optional(),
-    })
-    .optional(),
 });
 
 export type SettingsFormData = z.infer<typeof settingsSchema>;
