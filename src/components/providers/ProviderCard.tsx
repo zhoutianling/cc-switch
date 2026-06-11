@@ -58,7 +58,6 @@ interface ProviderCardProps {
   isInFailoverQueue?: boolean; // 是否在故障转移队列中
   onToggleFailover?: (enabled: boolean) => void; // 切换故障转移队列
   activeProviderId?: string; // 代理当前实际使用的供应商 ID（用于故障转移模式下标注绿色边框）
-  // OpenClaw: default model
 }
 
 /** 判断是否为官方供应商（无自定义 base URL / API key，直连官方 API） */
@@ -148,7 +147,6 @@ export function ProviderCard({
   isInFailoverQueue = false,
   onToggleFailover,
   activeProviderId,
-  // OpenClaw: default model
 }: ProviderCardProps) {
   const { t } = useTranslation();
 
@@ -211,7 +209,7 @@ export function ProviderCard({
     appId === "claude" && provider.category === "third_party";
 
   // 获取用量数据以判断是否有多套餐
-  // 累加模式应用（OpenCode/OpenClaw）：使用 isInConfig 代替 isCurrent
+  // 累加模式应用（OpenCode）：使用 isInConfig 代替 isCurrent
   const shouldAutoQuery =
     appId === "opencode" ? isInConfig : isCurrent;
   const autoQueryInterval = shouldAutoQuery
@@ -245,7 +243,6 @@ export function ProviderCard({
 
   // 判断是否是"当前使用中"的供应商
   // - OMO/OMO Slim 供应商：使用 isCurrent
-  // - OpenClaw：使用默认模型归属的 provider 作为当前项（蓝色边框）
   // - OpenCode（非 OMO）：不存在"当前"概念，返回 false
   // - 故障转移模式：代理实际使用的供应商（activeProviderId）
   // - 普通模式：isCurrent
@@ -530,7 +527,6 @@ export function ProviderCard({
               isAutoFailoverEnabled={isAutoFailoverEnabled}
               isInFailoverQueue={isInFailoverQueue}
               onToggleFailover={onToggleFailover}
-              // OpenClaw: default model
             />
           </div>
         </div>

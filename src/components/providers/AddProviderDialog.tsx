@@ -39,7 +39,7 @@ export function AddProviderDialog({
   onSubmit,
 }: AddProviderDialogProps) {
   const { t } = useTranslation();
-  // OpenCode and OpenClaw don't support universal providers
+  // OpenCode don't support universal providers
   const showUniversalTab =
     appId !== "opencode" && appId !== "claude-desktop";
   const [activeTab, setActiveTab] = useState<"app-specific" | "universal">(
@@ -103,7 +103,7 @@ export function AddProviderDialog({
         ...(values.meta ? { meta: values.meta } : {}),
       };
 
-      // OpenCode/OpenClaw: pass providerKey for ID generation
+      // OpenCode: pass providerKey for ID generation
       if (appId === "opencode" && values.providerKey) {
         providerData.providerKey = values.providerKey;
       }
@@ -318,7 +318,7 @@ export function AddProviderDialog({
           </TabsContent>
         </Tabs>
       ) : (
-        // OpenCode/OpenClaw: directly show form without tabs
+        // OpenCode: directly show form without tabs
         <ProviderForm
           appId={appId}
           submitLabel={t("common.add")}

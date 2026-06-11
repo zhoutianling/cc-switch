@@ -547,9 +547,9 @@ pub fn run() {
                 log::info!("✓ First-run welcome notice pending");
             }
 
-            // 1.6. 自动同步 OpenCode / OpenClaw 的 live providers 到数据库
+            // 1.6. 自动同步 OpenCode 的 live providers 到数据库
             //
-            // additive 模式（OpenCode / OpenClaw）的 import 函数本身按 id 幂等，
+            // additive 模式（OpenCode）的 import 函数本身按 id 幂等，
             // 已有的 provider 会被跳过，所以每次启动都跑是安全的——既保证新装
             // 用户开箱可见 live 中的供应商，也让外部修改的 live 文件能在重启
             // 后同步到数据库（与之前依赖前端"导入当前配置"按钮手动触发不同）。

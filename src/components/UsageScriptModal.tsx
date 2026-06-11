@@ -185,7 +185,6 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
           baseUrl: env.GOOGLE_GEMINI_BASE_URL,
         };
       } else if (false) {
-        // OpenClaw: settingsConfig 顶层扁平（camelCase，对应 openclaw.json）
         return {
           apiKey: (config as any).apiKey,
           baseUrl: (config as any).baseUrl,

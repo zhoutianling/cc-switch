@@ -205,7 +205,7 @@ impl StreamCheckService {
     ) -> Result<StreamCheckResult, AppError> {
         let start = Instant::now();
 
-        // OpenCode / OpenClaw 的 settings_config 结构与 Claude/Codex/Gemini 不同
+        // OpenCode 的 settings_config 结构与 Claude/Codex/Gemini 不同
         // （baseUrl / apiKey 直接作为根字段而非嵌套在 env），并且协议由 `api`
         // 或 `npm` 字段显式指定。它们不走 get_adapter 路径，而是直接分发。
         if matches!(
@@ -280,7 +280,7 @@ impl StreamCheckService {
             }
             AppType::OpenCode | AppType::Hermes => {
                 // Already handled via early dispatch above
-                unreachable!("OpenCode/OpenClaw/Hermes 已通过 check_once_without_adapter 处理")
+                unreachable!("OpenCode/Hermes 已通过 check_once_without_adapter 处理")
             }
         };
 
@@ -301,7 +301,6 @@ impl StreamCheckService {
     /// - "openai_responses": OpenAI Responses API (/v1/responses)
     /// - "gemini_native": Gemini Native streamGenerateContent
     ///
-    /// `extra_headers` 是一个可选的供应商级自定义 header 集合（从 OpenClaw
     /// 的 `settings_config.headers` 或 OpenCode 的 `settings_config.options.headers`
     /// 读取），在所有内置 header 之后追加，用于覆盖或补充（例如自定义 User-Agent）。
     #[allow(clippy::too_many_arguments)]
@@ -672,10 +671,9 @@ impl StreamCheckService {
         }
     }
 
-    /// OpenCode / OpenClaw 的独立分发入口（绕过 `get_adapter`）
+    /// OpenCode 的独立分发入口（绕过 `get_adapter`）
     ///
     /// 这两个应用的 `settings_config` 与 Claude/Codex/Gemini 完全不同：
-    /// - OpenClaw: `{ baseUrl, apiKey, api, models: [...] }`，`api` 字段标识协议
     /// - OpenCode: `{ npm, options: { baseURL, apiKey }, models: {...} }`，`npm` 字段标识协议
     ///
     /// 因此不能复用 `get_adapter`（会 fallback 到 CodexAdapter 而提取失败），
@@ -714,7 +712,7 @@ impl StreamCheckService {
                 )
                 .await
             }
-            _ => unreachable!("check_once_without_adapter 只处理 OpenCode/OpenClaw/Hermes"),
+            _ => unreachable!("check_once_without_adapter 只处理 OpenCode/Hermes"),
         };
 
         let response_time = start.elapsed().as_millis() as u64;
@@ -728,7 +726,7 @@ impl StreamCheckService {
 
     /// 将 check_*_stream 的原始结果包装成 StreamCheckResult
     ///
-    /// 抽取自 check_once 的末尾逻辑，以便 OpenCode/OpenClaw 的独立分支复用。
+    /// 抽取自 check_once 的末尾逻辑，以便 OpenCode 的独立分支复用。
     ///
     /// `model_tested` 是本次探测使用的模型名，用于在失败场景下仍能把模型信息透传给前端，
     /// 方便针对"模型不存在 / 已下架"这类错误渲染专门的提示。
@@ -820,7 +818,6 @@ impl StreamCheckService {
     }
 
     // Hermes 的 settings_config 用 snake_case（base_url / api_key / api_mode），
-    // 与 OpenClaw 的 camelCase（baseUrl / apiKey / api）是两套独立命名。
     // 见 src/config/hermesProviderPresets.ts 的 HermesProviderSettingsConfig。
     fn extract_hermes_base_url(provider: &Provider) -> Result<String, AppError> {
         provider
@@ -868,7 +865,6 @@ impl StreamCheckService {
     /// Hermes 以 `api_mode` 字段显式指定协议，取值来自
     /// `HermesApiMode`（hermesProviderPresets.ts）：
     /// - `chat_completions`   → check_claude_stream + api_format="openai_chat"（Bearer）
-    /// - `anthropic_messages` → check_claude_stream + api_format="anthropic"（ClaudeAuth，与 OpenClaw 的 anthropic-messages 同策略）
     /// - `codex_responses`    → check_claude_stream + api_format="openai_responses"（Bearer）
     /// - `bedrock_converse`   → 不支持（需要 AWS SigV4 签名）
     async fn check_hermes_stream(
@@ -936,7 +932,6 @@ impl StreamCheckService {
     /// - `@ai-sdk/amazon-bedrock`    → 不支持（需要 AWS SigV4 签名）
     ///
     /// URL/API Key 存放在 `settings_config.options.{baseURL,apiKey}`，注意
-    /// `baseURL` 大写 L（与 OpenClaw 的 `baseUrl` 首字母小写 u 不同）。
     async fn check_opencode_stream(
         client: &Client,
         provider: &Provider,

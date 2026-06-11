@@ -401,7 +401,6 @@ fn build_opencode_settings(request: &DeepLinkImportRequest) -> serde_json::Value
 ///
 /// Hermes' `custom_providers:` entries use `base_url` / `api_key` / `api_mode`
 /// (see `_VALID_CUSTOM_PROVIDER_FIELDS` in upstream `hermes_cli/config.py`).
-/// Emitting camelCase here — as the OpenClaw path does — would poison the
 /// YAML with unknown root fields the Hermes runtime ignores.
 ///
 /// `api_mode` is always written explicitly. Deeplinks have no field to carry
@@ -674,7 +673,6 @@ fn merge_gemini_config(
     Ok(())
 }
 
-/// Merge configuration for additive mode apps (OpenClaw, OpenCode)
 ///
 /// These apps use JSON config directly, so we only extract common fields
 /// (api_key, endpoint, model) from the config if not already set in URL params.

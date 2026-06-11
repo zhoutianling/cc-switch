@@ -59,7 +59,7 @@ interface ProviderListProps {
   isProxyRunning?: boolean; // 代理服务运行状态
   isProxyTakeover?: boolean; // 代理接管模式（Live配置已被接管）
   activeProviderId?: string; // 代理当前实际使用的供应商 ID（用于故障转移模式下标注绿色边框）
-  onSetAsDefault?: (provider: Provider) => void; // OpenClaw: set as default model
+  onSetAsDefault?: (provider: Provider) => void;
 }
 
 export function ProviderList({
@@ -95,8 +95,7 @@ export function ProviderList({
     enabled: appId === "opencode",
   });
 
-  // OpenClaw: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
-  // 判断供应商是否已添加到配置（累加模式应用：OpenCode/OpenClaw）
+  // 判断供应商是否已添加到配置（累加模式应用：OpenCode）
   const isProviderInConfig = useCallback(
     (providerId: string): boolean => {
       if (appId === "opencode") {
@@ -399,7 +398,6 @@ export function ProviderList({
                   handleToggleFailover(provider.id, enabled)
                 }
                 activeProviderId={activeProviderId}
-                // OpenClaw: default model
               />
             );
           })}
@@ -541,7 +539,6 @@ interface SortableProviderCardProps {
   isInFailoverQueue: boolean;
   onToggleFailover: (enabled: boolean) => void;
   activeProviderId?: string;
-  // OpenClaw: default model
 }
 
 function SortableProviderCard({
@@ -620,7 +617,6 @@ function SortableProviderCard({
         isInFailoverQueue={isInFailoverQueue}
         onToggleFailover={onToggleFailover}
         activeProviderId={activeProviderId}
-        // OpenClaw: default model
       />
     </div>
   );

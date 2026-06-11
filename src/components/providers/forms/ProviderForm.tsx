@@ -664,7 +664,6 @@ function ProviderFormFull({
     selectedPresetId: selectedPresetId ?? undefined,
   });
 
-  // ── Extracted hooks: OpenCode / OMO / OpenClaw ─────────────────────
 
   const {
     omoModelOptions,
@@ -792,12 +791,10 @@ function ProviderFormFull({
       return;
     }
 
-    // opencode / openclaw: providerKey 相关
     // A 类（空）归到 issues；B 类（正则不合法 / 重复 / 状态加载中）仍硬拒绝
     const keyPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
     if (appId === "opencode" && !isAnyOmoCategory) {
-      // providerKey 是 opencode / openclaw 的主键 ID，空或格式不合法
       // 都属于完整性约束，保留硬拒绝（mutations 层也会 throw，软化只会让错误更晦涩）
       if (!opencodeForm.opencodeProviderKey.trim()) {
         toast.error(t("opencode.providerKeyRequired"));
@@ -1633,7 +1630,6 @@ function ProviderFormFull({
               />
             )}
 
-          {/* OpenClaw 专属字段 */}
           {/* 配置编辑器：Codex、Claude、Gemini 分别使用不同的编辑器 */}
           {appId === "codex" ? (
             <>

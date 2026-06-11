@@ -837,7 +837,7 @@ impl ProviderService {
     /// 优先从本地 settings 读取，验证后 fallback 到数据库的 is_current 字段。
     /// 这确保了云同步场景下多设备可以独立选择供应商，且返回的 ID 一定有效。
     ///
-    /// 对于累加模式应用（OpenCode, OpenClaw），不存在"当前供应商"概念，直接返回空字符串。
+    /// 对于累加模式应用（OpenCode），不存在"当前供应商"概念，直接返回空字符串。
     pub fn current(state: &AppState, app_type: AppType) -> Result<String, AppError> {
         // Additive mode apps have no "current" provider concept
         if app_type.is_additive_mode() {
@@ -866,7 +866,7 @@ impl ProviderService {
         // Save to database
         state.db.save_provider(app_type.as_str(), &provider)?;
 
-        // Additive mode apps (OpenCode, OpenClaw): optionally write to live config.
+        // Additive mode apps (OpenCode): optionally write to live config.
         if app_type.is_additive_mode() {
             // OMO / OMO Slim providers use exclusive mode and write to dedicated config file.
             if matches!(app_type, AppType::OpenCode)
@@ -985,7 +985,7 @@ impl ProviderService {
             return Ok(true);
         }
 
-        // Additive mode apps (OpenCode, OpenClaw): only sync to live when the provider
+        // Additive mode apps (OpenCode): only sync to live when the provider
         // already exists in live config. Editing a DB-only provider must not auto-add it.
         if app_type.is_additive_mode() {
             let omo_variant = if matches!(app_type, AppType::OpenCode) {
@@ -1096,7 +1096,7 @@ impl ProviderService {
     /// Delete a provider
     ///
     /// 同时检查本地 settings 和数据库的当前供应商，防止删除任一端正在使用的供应商。
-    /// 对于累加模式应用（OpenCode, OpenClaw），可以随时删除任意供应商，同时从 live 配置中移除。
+    /// 对于累加模式应用（OpenCode），可以随时删除任意供应商，同时从 live 配置中移除。
     pub fn delete(state: &AppState, app_type: AppType, id: &str) -> Result<(), AppError> {
         // Additive mode apps - no current provider concept
         if app_type.is_additive_mode() {
@@ -1124,7 +1124,7 @@ impl ProviderService {
                 }
             }
 
-            // Non-OMO path for both OpenCode and OpenClaw:
+            // Non-OMO path for both OpenCode:
             // remove from live first (atomicity), then DB.
             //
             // Use check_live_config_exists rather than trusting the flag alone: the flag
@@ -1158,7 +1158,7 @@ impl ProviderService {
         state.db.delete_provider(app_type.as_str(), id)
     }
 
-    /// Remove provider from live config only (for additive mode apps like OpenCode, OpenClaw)
+    /// Remove provider from live config only (for additive mode apps like OpenCode)
     ///
     /// Does NOT delete from database - provider remains in the list.
     /// This is used when user wants to "remove" a provider from active config
