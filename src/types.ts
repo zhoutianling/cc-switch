@@ -219,7 +219,6 @@ export interface VisibleApps {
   codex: boolean;
   gemini: boolean;
   opencode: boolean;
-  openclaw: boolean;
 }
 
 // 应用设置类型（用于设置对话框与 Tauri API）
@@ -271,8 +270,6 @@ export interface Settings {
   geminiConfigDir?: string;
   // 覆盖 OpenCode 配置目录（可选）
   opencodeConfigDir?: string;
-  // 覆盖 OpenClaw 配置目录（可选）
-  openclawConfigDir?: string;
 
   // ===== 当前供应商 ID（设备级）=====
   // 当前 Claude 供应商 ID（优先于数据库 is_current）
@@ -345,7 +342,6 @@ export interface McpApps {
   codex: boolean;
   gemini: boolean;
   opencode: boolean;
-  openclaw: boolean;
 }
 
 // MCP 服务器条目（v3.7.0 统一结构）
@@ -483,61 +479,3 @@ export interface OpenCodeMcpServerSpec {
   // 通用字段
   enabled?: boolean;
 }
-
-// ============================================================================
-// OpenClaw 专属配置（v3.11.0+）
-// ============================================================================
-
-// OpenClaw 模型配置
-export interface OpenClawModel {
-  id: string;
-  name: string;
-  alias?: string;
-  reasoning?: boolean; // 是否支持推理模式（如 o1、DeepSeek R1）
-  input?: string[]; // 支持的输入类型（如 ["text"]、["text", "image"]）
-  cost?: {
-    input: number;
-    output: number;
-    cacheRead?: number; // 缓存读取价格
-    cacheWrite?: number; // 缓存写入价格
-  };
-  contextWindow?: number;
-  maxTokens?: number; // 最大输出 token 数
-}
-
-// OpenClaw 默认模型配置（agents.defaults.model）
-export interface OpenClawDefaultModel {
-  primary: string;
-  fallbacks?: string[];
-}
-
-// OpenClaw 模型目录条目（agents.defaults.models 中的值）
-export interface OpenClawModelCatalogEntry {
-  alias?: string;
-}
-
-export interface OpenClawHealthWarning {
-  code: string;
-  message: string;
-  path?: string;
-}
-
-export interface OpenClawWriteOutcome {
-  backupPath?: string;
-  warnings: OpenClawHealthWarning[];
-}
-
-// OpenClaw 供应商配置（settings_config 结构）
-// 对应 OpenClaw 的 models.providers.<provider-id> 配置
-export interface OpenClawProviderConfig {
-  baseUrl?: string; // API 端点
-  apiKey?: string; // API 密钥
-  api?: string; // API 协议类型（如 "openai-completions"、"anthropic"）
-  models?: OpenClawModel[]; // 可用模型列表
-  headers?: Record<string, string>; // 自定义请求头（如 User-Agent）
-  authHeader?: boolean; // 供应商自定义认证开关（如 Longcat）
-}
-
-// OpenClaw agents.defaults 完整配置
-// OpenClaw env 配置（openclaw.json 的 env 节点）
-// OpenClaw tools 配置（openclaw.json 的 tools 节点）

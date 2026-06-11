@@ -4,5 +4,4 @@ export type AppId =
   | "claude-desktop"
   | "codex"
   | "gemini"
-  | "opencode"
-  | "openclaw";
+  | "opencode";

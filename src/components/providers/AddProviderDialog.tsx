@@ -19,7 +19,6 @@ import { codexProviderPresets } from "@/config/codexProviderPresets";
 import { geminiProviderPresets } from "@/config/geminiProviderPresets";
 import { claudeDesktopProviderPresets } from "@/config/claudeDesktopProviderPresets";
 import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
-import type { OpenClawSuggestedDefaults } from "@/config/openclawProviderPresets";
 import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
 
 interface AddProviderDialogProps {
@@ -29,7 +28,6 @@ interface AddProviderDialogProps {
   onSubmit: (
     provider: Omit<Provider, "id"> & {
       providerKey?: string;
-      suggestedDefaults?: OpenClawSuggestedDefaults;
     },
   ) => Promise<void> | void;
 }
@@ -43,9 +41,7 @@ export function AddProviderDialog({
   const { t } = useTranslation();
   // OpenCode and OpenClaw don't support universal providers
   const showUniversalTab =
-    appId !== "opencode" &&
-    appId !== "openclaw" &&
-    appId !== "claude-desktop";
+    appId !== "opencode" && appId !== "claude-desktop";
   const [activeTab, setActiveTab] = useState<"app-specific" | "universal">(
     "app-specific",
   );
@@ -96,7 +92,6 @@ export function AddProviderDialog({
       // 构造基础提交数据
       const providerData: Omit<Provider, "id"> & {
         providerKey?: string;
-        suggestedDefaults?: OpenClawSuggestedDefaults;
       } = {
         name: values.name.trim(),
         notes: values.notes?.trim() || undefined,
@@ -109,7 +104,7 @@ export function AddProviderDialog({
       };
 
       // OpenCode/OpenClaw: pass providerKey for ID generation
-      if ((appId === "opencode" || appId === "openclaw") && values.providerKey) {
+      if (appId === "opencode" && values.providerKey) {
         providerData.providerKey = values.providerKey;
       }
 
@@ -220,11 +215,6 @@ export function AddProviderDialog({
           if (options?.baseURL) {
             addUrl(options.baseURL);
           }
-        } else if (appId === "openclaw") {
-          // OpenClaw uses baseUrl directly
-          if (parsedConfig.baseUrl) {
-            addUrl(parsedConfig.baseUrl as string);
-          }
         }
 
         const urls = Array.from(urlSet);
@@ -244,11 +234,6 @@ export function AddProviderDialog({
             custom_endpoints: customEndpoints,
           };
         }
-      }
-
-      // OpenClaw: pass suggestedDefaults for model registration
-      if (appId === "openclaw" && values.suggestedDefaults) {
-        providerData.suggestedDefaults = values.suggestedDefaults;
       }
 
       await onSubmit(providerData);

@@ -59,8 +59,6 @@ interface ProviderCardProps {
   onToggleFailover?: (enabled: boolean) => void; // 切换故障转移队列
   activeProviderId?: string; // 代理当前实际使用的供应商 ID（用于故障转移模式下标注绿色边框）
   // OpenClaw: default model
-  isDefaultModel?: boolean;
-  onSetAsDefault?: () => void;
 }
 
 /** 判断是否为官方供应商（无自定义 base URL / API key，直连官方 API） */
@@ -151,8 +149,6 @@ export function ProviderCard({
   onToggleFailover,
   activeProviderId,
   // OpenClaw: default model
-  isDefaultModel,
-  onSetAsDefault,
 }: ProviderCardProps) {
   const { t } = useTranslation();
 
@@ -217,9 +213,7 @@ export function ProviderCard({
   // 获取用量数据以判断是否有多套餐
   // 累加模式应用（OpenCode/OpenClaw）：使用 isInConfig 代替 isCurrent
   const shouldAutoQuery =
-    appId === "opencode" || appId === "openclaw"
-      ? isInConfig
-      : isCurrent;
+    appId === "opencode" ? isInConfig : isCurrent;
   const autoQueryInterval = shouldAutoQuery
     ? provider.meta?.usage_script?.autoQueryInterval || 0
     : 0;
@@ -257,13 +251,11 @@ export function ProviderCard({
   // - 普通模式：isCurrent
   const isActiveProvider = isAnyOmo
     ? isCurrent
-    : appId === "openclaw"
-      ? Boolean(isDefaultModel)
-      : appId === "opencode"
-        ? false
-        : isAutoFailoverEnabled
-          ? activeProviderId === provider.id
-          : isCurrent;
+    : appId === "opencode"
+      ? false
+      : isAutoFailoverEnabled
+        ? activeProviderId === provider.id
+        : isCurrent;
 
   const shouldUseGreen = !isAnyOmo && isProxyTakeover && isActiveProvider;
   const hasPersistentConfigHighlight = isAdditiveMode && isInConfig;
@@ -539,8 +531,6 @@ export function ProviderCard({
               isInFailoverQueue={isInFailoverQueue}
               onToggleFailover={onToggleFailover}
               // OpenClaw: default model
-              isDefaultModel={isDefaultModel}
-              onSetAsDefault={onSetAsDefault}
             />
           </div>
         </div>

@@ -129,10 +129,6 @@ impl ConfigService {
                 // OpenCode uses additive mode, no live sync needed
                 // OpenCode providers are managed directly in the config file
             }
-            AppType::OpenClaw => {
-                // OpenClaw uses additive mode, no live sync needed
-                // OpenClaw providers are managed directly in the config file
-            }
             AppType::Hermes => {
                 // Hermes uses additive mode, no live sync needed
             }

@@ -146,7 +146,6 @@ pub(crate) fn build_provider_from_request(
         AppType::Codex => build_codex_settings(request),
         AppType::Gemini => build_gemini_settings(request),
         AppType::OpenCode => build_opencode_settings(request),
-        AppType::OpenClaw => build_additive_app_settings(request),
         AppType::Hermes => build_hermes_settings(request),
     };
 
@@ -398,33 +397,6 @@ fn build_opencode_settings(request: &DeepLinkImportRequest) -> serde_json::Value
     })
 }
 
-/// Build settings for OpenClaw (camelCase live config).
-/// Format: { baseUrl, apiKey, api, models }
-fn build_additive_app_settings(request: &DeepLinkImportRequest) -> serde_json::Value {
-    let endpoint = get_primary_endpoint(request);
-
-    let mut config = serde_json::Map::new();
-
-    if !endpoint.is_empty() {
-        config.insert("baseUrl".to_string(), json!(endpoint));
-    }
-
-    if let Some(api_key) = &request.api_key {
-        config.insert("apiKey".to_string(), json!(api_key));
-    }
-
-    config.insert("api".to_string(), json!("openai-completions"));
-
-    if let Some(model) = &request.model {
-        config.insert(
-            "models".to_string(),
-            json!([{ "id": model, "name": model }]),
-        );
-    }
-
-    json!(config)
-}
-
 /// Build Hermes provider settings (snake_case YAML-native fields).
 ///
 /// Hermes' `custom_providers:` entries use `base_url` / `api_key` / `api_mode`
@@ -528,7 +500,7 @@ pub fn parse_and_merge_config(
         "codex" => merge_codex_config(&mut merged, &config_value)?,
         "gemini" => merge_gemini_config(&mut merged, &config_value)?,
         // Additive mode apps use JSON config directly; pass through as-is
-        "openclaw" | "opencode" | "hermes" => {
+        "opencode" | "hermes" => {
             merge_additive_config(&mut merged, &config_value)?;
         }
         "" => {
@@ -823,21 +795,4 @@ mod tests {
         assert_eq!(obj.get("api_mode").unwrap(), "chat_completions");
     }
 
-    #[test]
-    fn openclaw_still_uses_camel_case() {
-        // OpenClaw's live config natively uses camelCase; guard against a
-        // refactor accidentally flipping it to snake_case.
-        let request = DeepLinkImportRequest {
-            resource: "provider".to_string(),
-            app: Some("openclaw".to_string()),
-            name: Some("c".to_string()),
-            endpoint: Some("https://api.example.com".to_string()),
-            api_key: Some("k".to_string()),
-            ..Default::default()
-        };
-        let settings = build_additive_app_settings(&request);
-        let obj = settings.as_object().unwrap();
-        assert!(obj.contains_key("baseUrl"));
-        assert!(obj.contains_key("apiKey"));
-    }
 }

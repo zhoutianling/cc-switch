@@ -21,10 +21,6 @@ import type { Provider } from "@/types";
 import type { AppId } from "@/lib/api";
 import { providersApi } from "@/lib/api/providers";
 import { useDragSort } from "@/hooks/useDragSort";
-import {
-  useOpenClawLiveProviderIds,
-  useOpenClawDefaultModel,
-} from "@/hooks/useOpenClaw";
 import { useStreamCheck } from "@/hooks/useStreamCheck";
 import { ProviderCard } from "@/components/providers/ProviderCard";
 import { ProviderEmptyState } from "@/components/providers/ProviderEmptyState";
@@ -85,7 +81,6 @@ export function ProviderList({
   isProxyRunning = false,
   isProxyTakeover = false,
   activeProviderId,
-  onSetAsDefault,
 }: ProviderListProps) {
   const { t } = useTranslation();
   const { checkProvider, isChecking } = useStreamCheck(appId);
@@ -101,34 +96,15 @@ export function ProviderList({
   });
 
   // OpenClaw: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
-  const { data: openclawLiveIds } = useOpenClawLiveProviderIds(
-    appId === "openclaw",
-  );
   // 判断供应商是否已添加到配置（累加模式应用：OpenCode/OpenClaw）
   const isProviderInConfig = useCallback(
     (providerId: string): boolean => {
       if (appId === "opencode") {
         return opencodeLiveIds?.includes(providerId) ?? false;
       }
-      if (appId === "openclaw") {
-        return openclawLiveIds?.includes(providerId) ?? false;
-      }
       return true; // 其他应用始终返回 true
     },
-    [appId, opencodeLiveIds, openclawLiveIds],
-  );
-
-  // OpenClaw: query default model to determine which provider is default
-  const { data: openclawDefaultModel } = useOpenClawDefaultModel(
-    appId === "openclaw",
-  );
-
-  const isProviderDefaultModel = useCallback(
-    (providerId: string): boolean => {
-      if (appId !== "openclaw" || !openclawDefaultModel?.primary) return false;
-      return openclawDefaultModel.primary.startsWith(providerId + "/");
-    },
-    [appId, openclawDefaultModel],
+    [appId, opencodeLiveIds],
   );
 
   // 故障转移相关
@@ -227,10 +203,6 @@ export function ProviderList({
     mutationFn: async (): Promise<boolean> => {
       if (appId === "opencode") {
         const count = await providersApi.importOpenCodeFromLive();
-        return count > 0;
-      }
-      if (appId === "openclaw") {
-        const count = await providersApi.importOpenClawFromLive();
         return count > 0;
       }
       if (appId === "claude-desktop") {
@@ -428,10 +400,6 @@ export function ProviderList({
                 }
                 activeProviderId={activeProviderId}
                 // OpenClaw: default model
-                isDefaultModel={isProviderDefaultModel(provider.id)}
-                onSetAsDefault={
-                  onSetAsDefault ? () => onSetAsDefault(provider) : undefined
-                }
               />
             );
           })}
@@ -574,8 +542,6 @@ interface SortableProviderCardProps {
   onToggleFailover: (enabled: boolean) => void;
   activeProviderId?: string;
   // OpenClaw: default model
-  isDefaultModel?: boolean;
-  onSetAsDefault?: () => void;
 }
 
 function SortableProviderCard({
@@ -604,8 +570,6 @@ function SortableProviderCard({
   isInFailoverQueue,
   onToggleFailover,
   activeProviderId,
-  isDefaultModel,
-  onSetAsDefault,
 }: SortableProviderCardProps) {
   const {
     setNodeRef,
@@ -657,8 +621,6 @@ function SortableProviderCard({
         onToggleFailover={onToggleFailover}
         activeProviderId={activeProviderId}
         // OpenClaw: default model
-        isDefaultModel={isDefaultModel}
-        onSetAsDefault={onSetAsDefault}
       />
     </div>
   );

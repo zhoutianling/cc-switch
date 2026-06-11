@@ -210,7 +210,7 @@ impl StreamCheckService {
         // 或 `npm` 字段显式指定。它们不走 get_adapter 路径，而是直接分发。
         if matches!(
             app_type,
-            AppType::OpenCode | AppType::OpenClaw | AppType::Hermes
+            AppType::OpenCode | AppType::Hermes
         ) {
             return Self::check_once_without_adapter(app_type, provider, config, start).await;
         }
@@ -278,7 +278,7 @@ impl StreamCheckService {
                 )
                 .await
             }
-            AppType::OpenCode | AppType::OpenClaw | AppType::Hermes => {
+            AppType::OpenCode | AppType::Hermes => {
                 // Already handled via early dispatch above
                 unreachable!("OpenCode/OpenClaw/Hermes 已通过 check_once_without_adapter 处理")
             }
@@ -694,16 +694,6 @@ impl StreamCheckService {
         let test_prompt = &config.test_prompt;
 
         let result = match app_type {
-            AppType::OpenClaw => {
-                Self::check_additive_app_stream(
-                    &client,
-                    provider,
-                    &model_to_test,
-                    test_prompt,
-                    request_timeout,
-                )
-                .await
-            }
             AppType::OpenCode => {
                 Self::check_opencode_stream(
                     &client,
@@ -827,179 +817,6 @@ impl StreamCheckService {
             return Some("modelNotFound");
         }
         None
-    }
-
-    /// OpenClaw 流式检查分发器
-    ///
-    /// 根据 `settings_config.api` 字段分发到对应协议的检查器。
-    /// 取值参见 `openclawApiProtocols` (前端 openclawProviderPresets.ts):
-    /// - `openai-completions`   → check_claude_stream + api_format="openai_chat"
-    /// - `openai-responses`     → check_claude_stream + api_format="openai_responses"
-    /// - `anthropic-messages`   → check_claude_stream + api_format="anthropic" (ClaudeAuth 策略)
-    /// - `google-generative-ai` → check_gemini_stream (Google API Key 策略)
-    /// - `bedrock-converse-stream` → 不支持（需要 AWS SigV4 签名）
-    async fn check_additive_app_stream(
-        client: &Client,
-        provider: &Provider,
-        model: &str,
-        test_prompt: &str,
-        timeout: std::time::Duration,
-    ) -> Result<(u16, String), AppError> {
-        // 自定义认证头（如 Longcat 的 `apikey` 头）不走标准 Bearer，
-        // 具体头名由 OpenClaw 网关内部决定，cc-switch 无法准确构造，
-        // 因此直接返回友好错误而不是让用户看到一个误导性的 401。
-        if Self::additive_app_uses_auth_header(provider) {
-            return Err(AppError::localized(
-                "openclaw_auth_header_not_supported",
-                "该供应商使用自定义认证头，暂不支持流式健康检查。建议直接通过 OpenClaw 测试。",
-                "This provider uses a custom auth header; stream health check is not supported. Please test it directly via OpenClaw.",
-            ));
-        }
-
-        let base_url = Self::extract_openclaw_base_url(provider)?;
-        let api_key = Self::extract_openclaw_api_key(provider)?;
-        let api = Self::extract_openclaw_protocol(provider);
-        let extra_headers = Self::extract_openclaw_headers(provider);
-
-        match api.as_deref() {
-            Some("openai-completions") => {
-                let auth = AuthInfo::new(api_key, AuthStrategy::Bearer);
-                Self::check_claude_stream(
-                    client,
-                    &base_url,
-                    &auth,
-                    model,
-                    test_prompt,
-                    timeout,
-                    provider,
-                    Some("openai_chat"),
-                    extra_headers,
-                )
-                .await
-            }
-            Some("openai-responses") => {
-                let auth = AuthInfo::new(api_key, AuthStrategy::Bearer);
-                Self::check_claude_stream(
-                    client,
-                    &base_url,
-                    &auth,
-                    model,
-                    test_prompt,
-                    timeout,
-                    provider,
-                    Some("openai_responses"),
-                    extra_headers,
-                )
-                .await
-            }
-            Some("anthropic-messages") => {
-                // 使用 ClaudeAuth（Bearer-only）以兼容 Claude 中转服务。
-                // 某些中转同时收到 Authorization 和 x-api-key 会报错，ClaudeAuth
-                // 策略保证只下发 Bearer。官方 Anthropic 也接受纯 Bearer。
-                let auth = AuthInfo::new(api_key, AuthStrategy::ClaudeAuth);
-                Self::check_claude_stream(
-                    client,
-                    &base_url,
-                    &auth,
-                    model,
-                    test_prompt,
-                    timeout,
-                    provider,
-                    Some("anthropic"),
-                    extra_headers,
-                )
-                .await
-            }
-            Some("google-generative-ai") => {
-                let auth = AuthInfo::new(api_key, AuthStrategy::Google);
-                Self::check_gemini_stream(
-                    client,
-                    &base_url,
-                    &auth,
-                    model,
-                    test_prompt,
-                    timeout,
-                    extra_headers,
-                )
-                .await
-            }
-            Some("bedrock-converse-stream") => Err(AppError::localized(
-                "openclaw_bedrock_not_supported",
-                "AWS Bedrock 需要 SigV4 签名，当前不支持健康检查。请通过 AWS 控制台或 OpenClaw 验证连通性。",
-                "AWS Bedrock requires SigV4 signing and is not supported by stream health check. Please verify connectivity via AWS console or OpenClaw.",
-            )),
-            Some(other) => Err(AppError::localized(
-                "openclaw_protocol_not_yet_supported",
-                format!("OpenClaw 暂不支持协议: {other}"),
-                format!("OpenClaw protocol not yet supported: {other}"),
-            )),
-            None => Err(AppError::localized(
-                "openclaw_protocol_missing",
-                "OpenClaw 供应商缺少 api 字段",
-                "OpenClaw provider is missing the `api` field",
-            )),
-        }
-    }
-
-    /// 判断 additive-mode 供应商是否使用自定义认证头（`authHeader: true`）
-    fn additive_app_uses_auth_header(provider: &Provider) -> bool {
-        provider
-            .settings_config
-            .get("authHeader")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-    }
-
-    /// 提取 OpenClaw 供应商的自定义 headers（来自 `settings_config.headers`）
-    fn extract_openclaw_headers(
-        provider: &Provider,
-    ) -> Option<&serde_json::Map<String, serde_json::Value>> {
-        provider
-            .settings_config
-            .get("headers")
-            .and_then(|v| v.as_object())
-            .filter(|m| !m.is_empty())
-    }
-
-    fn extract_openclaw_base_url(provider: &Provider) -> Result<String, AppError> {
-        provider
-            .settings_config
-            .get("baseUrl")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| {
-                AppError::localized(
-                    "openclaw_base_url_missing",
-                    "OpenClaw 供应商缺少 baseUrl",
-                    "OpenClaw provider is missing `baseUrl`",
-                )
-            })
-    }
-
-    fn extract_openclaw_api_key(provider: &Provider) -> Result<String, AppError> {
-        provider
-            .settings_config
-            .get("apiKey")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| {
-                AppError::localized(
-                    "openclaw_api_key_missing",
-                    "OpenClaw 供应商缺少 apiKey",
-                    "OpenClaw provider is missing `apiKey`",
-                )
-            })
-    }
-
-    fn extract_openclaw_protocol(provider: &Provider) -> Option<String> {
-        provider
-            .settings_config
-            .get("api")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
     }
 
     // Hermes 的 settings_config 用 snake_case（base_url / api_key / api_mode），
@@ -1382,10 +1199,8 @@ impl StreamCheckService {
                 // Try to extract first model from the models object
                 Self::extract_opencode_model(provider).unwrap_or_else(|| "gpt-4o".to_string())
             }
-            AppType::OpenClaw | AppType::Hermes => {
-                // OpenClaw/Hermes use models array in settings_config
-                // Try to extract first model from the models array
-                Self::extract_openclaw_model(provider).unwrap_or_else(|| "gpt-4o".to_string())
+            AppType::Hermes => {
+                Self::extract_models_array_model(provider).unwrap_or_else(|| "gpt-4o".to_string())
             }
         }
     }
@@ -1400,8 +1215,7 @@ impl StreamCheckService {
         models.keys().next().map(|s| s.to_string())
     }
 
-    fn extract_openclaw_model(provider: &Provider) -> Option<String> {
-        // OpenClaw uses models array: [{ "id": "model-id", "name": "Model Name" }]
+    fn extract_models_array_model(provider: &Provider) -> Option<String> {
         let models = provider
             .settings_config
             .get("models")
@@ -1612,33 +1426,6 @@ mod tests {
         let result =
             StreamCheckService::resolve_opencode_base_url(&p, Some("@ai-sdk/openai-compatible"));
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_extract_openclaw_headers_preserves_map() {
-        let p = make_provider(serde_json::json!({
-            "baseUrl": "https://example.com/v1",
-            "apiKey": "k",
-            "api": "openai-completions",
-            "headers": { "User-Agent": "MyBot/1.0", "X-Trace": "abc" },
-        }));
-        let headers = StreamCheckService::extract_openclaw_headers(&p).unwrap();
-        assert_eq!(
-            headers.get("User-Agent").and_then(|v| v.as_str()),
-            Some("MyBot/1.0")
-        );
-        assert_eq!(headers.get("X-Trace").and_then(|v| v.as_str()), Some("abc"));
-    }
-
-    #[test]
-    fn test_extract_openclaw_headers_ignores_empty_map() {
-        let p = make_provider(serde_json::json!({
-            "baseUrl": "https://example.com/v1",
-            "apiKey": "k",
-            "api": "openai-completions",
-            "headers": {},
-        }));
-        assert!(StreamCheckService::extract_openclaw_headers(&p).is_none());
     }
 
     #[test]

@@ -34,7 +34,6 @@ import {
 } from "@/lib/api";
 import { checkAllEnvConflicts, checkEnvConflicts } from "@/lib/api/env";
 import { useProviderActions } from "@/hooks/useProviderActions";
-import { openclawKeys } from "@/hooks/useOpenClaw";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { useAutoCompact } from "@/hooks/useAutoCompact";
 import { useUsageCacheBridge } from "@/hooks/useUsageCacheBridge";
@@ -96,7 +95,6 @@ const VALID_APPS: AppId[] = [
   "codex",
   "gemini",
   "opencode",
-  "openclaw",
 ];
 
 const getInitialApp = (): AppId => {
@@ -155,7 +153,6 @@ function App() {
     codex: true,
     gemini: true,
     opencode: true,
-    openclaw: true,
   };
 
   const getFirstVisibleApp = (): AppId => {
@@ -164,7 +161,6 @@ function App() {
     if (visibleApps.codex) return "codex";
     if (visibleApps.gemini) return "gemini";
     if (visibleApps.opencode) return "opencode";
-    if (visibleApps.openclaw) return "openclaw";
     return "claude"; // fallback
   };
 
@@ -181,7 +177,6 @@ function App() {
       sharedFeatureApp !== "claude" &&
       sharedFeatureApp !== "codex" &&
       sharedFeatureApp !== "opencode" &&
-      sharedFeatureApp !== "openclaw" &&
       sharedFeatureApp !== "gemini"
     ) {
       setCurrentView("providers");
@@ -230,12 +225,11 @@ function App() {
   });
   const providers = useMemo(() => data?.providers ?? {}, [data]);
   const currentProviderId = data?.currentProviderId ?? "";
-  const hasSkillsSupport = sharedFeatureApp !== "openclaw";
+  const hasSkillsSupport = true;
   const hasSessionSupport =
     sharedFeatureApp === "claude" ||
     sharedFeatureApp === "codex" ||
     sharedFeatureApp === "opencode" ||
-    sharedFeatureApp === "openclaw" ||
     sharedFeatureApp === "gemini";
 
   const {
@@ -244,7 +238,6 @@ function App() {
     switchProvider,
     deleteProvider,
     saveUsageScript,
-    setAsDefaultModel,
   } = useProviderActions(
     activeApp,
     isProxyRunning,
@@ -599,13 +592,6 @@ function App() {
         await queryClient.invalidateQueries({
           queryKey: ["opencodeLiveProviderIds"],
         });
-      } else if (activeApp === "openclaw") {
-        await queryClient.invalidateQueries({
-          queryKey: openclawKeys.liveProviderIds,
-        });
-        await queryClient.invalidateQueries({
-          queryKey: openclawKeys.defaultModel,
-        });
       }
       toast.success(
         t("notifications.removeFromConfigSuccess", {
@@ -656,24 +642,13 @@ function App() {
       iconColor: provider.iconColor,
     };
 
-    if (
-      activeApp === "opencode" ||
-      activeApp === "openclaw"
-    ) {
+    if (activeApp === "opencode") {
       let liveProviderIds: string[] = [];
       try {
-        liveProviderIds =
-          activeApp === "opencode"
-            ? await queryClient.ensureQueryData({
-                queryKey: ["opencodeLiveProviderIds"],
-                queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
-              })
-            : activeApp === "openclaw"
-              ? await queryClient.ensureQueryData({
-                  queryKey: openclawKeys.liveProviderIds,
-                  queryFn: () => providersApi.getOpenClawLiveProviderIds(),
-                })
-              : [];
+        liveProviderIds = await queryClient.ensureQueryData({
+          queryKey: ["opencodeLiveProviderIds"],
+          queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
+        });
       } catch (error) {
         console.error(
           "[App] Failed to load live provider IDs for duplication",
@@ -839,18 +814,14 @@ function App() {
             <UnifiedSkillsPanel
               ref={unifiedSkillsPanelRef}
               onOpenDiscovery={() => setCurrentView("skillsDiscovery")}
-              currentApp={
-                sharedFeatureApp === "openclaw" ? "claude" : sharedFeatureApp
-              }
+              currentApp={sharedFeatureApp}
             />
           );
         case "skillsDiscovery":
           return (
             <SkillsPage
               ref={skillsPageRef}
-              initialApp={
-                sharedFeatureApp === "openclaw" ? "claude" : sharedFeatureApp
-              }
+              initialApp={sharedFeatureApp}
             />
           );
         case "mcp":
@@ -909,8 +880,7 @@ function App() {
                         setConfirmAction({ provider, action: "delete" })
                       }
                       onRemoveFromConfig={
-                        activeApp === "opencode" ||
-                        activeApp === "openclaw"
+                        activeApp === "opencode"
                           ? (provider) =>
                               setConfirmAction({ provider, action: "remove" })
                           : undefined
@@ -930,11 +900,6 @@ function App() {
                         activeApp === "claude" ? handleOpenTerminal : undefined
                       }
                       onCreate={() => setIsAddOpen(true)}
-                      onSetAsDefault={
-                        activeApp === "openclaw"
-                          ? setAsDefaultModel
-                          : undefined
-                      }
                     />
                   </motion.div>
                 </AnimatePresence>
@@ -1144,8 +1109,7 @@ function App() {
 
           <div className="flex flex-1 min-w-0 items-center justify-end gap-1.5">
             {currentView === "providers" &&
-              activeApp !== "opencode" &&
-              activeApp !== "openclaw" && (
+              activeApp !== "opencode" && (
                 <div
                   className="flex shrink-0 items-center gap-1.5"
                   style={{ WebkitAppRegion: "no-drag" } as any}
@@ -1284,27 +1248,14 @@ function App() {
                     <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
                       <AnimatePresence mode="wait">
                         <motion.div
-                          key={activeApp === "openclaw" ? "openclaw" : "default"}
+                          key="default"
                           className="flex items-center gap-1"
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.15 }}
                         >
-                          {activeApp === "openclaw" ? (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setCurrentView("sessions")}
-                                className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
-                                title={t("sessionManager.title")}
-                              >
-                                <History className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
+                          <>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1353,8 +1304,7 @@ function App() {
                               >
                                 <McpIcon size={16} />
                               </Button>
-                            </>
-                          )}
+                          </>
                         </motion.div>
                       </AnimatePresence>
                     </div>

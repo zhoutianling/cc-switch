@@ -32,7 +32,6 @@ pub fn reset_test_fs() {
         ".cc-switch",
         ".gemini",
         ".config",
-        ".openclaw",
     ] {
         let path = home.join(sub);
         if path.exists() {
