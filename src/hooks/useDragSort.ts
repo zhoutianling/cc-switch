@@ -15,10 +15,9 @@ import { providersApi, type AppId } from "@/lib/api";
 
 export function useDragSort(providers: Record<string, Provider>, appId: AppId) {
   const queryClient = useQueryClient();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const sortedProviders = useMemo(() => {
-    const locale = i18n.language === "zh" ? "zh-CN" : "en-US";
     return Object.values(providers).sort((a, b) => {
       if (a.sortIndex !== undefined && b.sortIndex !== undefined) {
         return a.sortIndex - b.sortIndex;
@@ -32,9 +31,9 @@ export function useDragSort(providers: Record<string, Provider>, appId: AppId) {
         return timeA - timeB;
       }
 
-      return a.name.localeCompare(b.name, locale);
+      return a.name.localeCompare(b.name, "zh-CN");
     });
-  }, [providers, i18n.language]);
+  }, [providers]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

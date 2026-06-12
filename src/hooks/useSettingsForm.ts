@@ -3,17 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useSettingsQuery } from "@/lib/query";
 import type { Settings } from "@/types";
 
-type Language = "zh" | "en" | "ja";
+type Language = "zh";
 
 export type SettingsFormState = Omit<Settings, "language"> & {
   language: Language;
 };
 
-const normalizeLanguage = (lang?: string | null): Language => {
-  if (!lang) return "zh";
-  const normalized = lang.toLowerCase();
-  return normalized === "en" || normalized === "ja" ? normalized : "zh";
-};
+const normalizeLanguage = (): Language => "zh";
 
 const sanitizeDir = (value?: string | null): string | undefined => {
   if (!value) return undefined;
@@ -31,14 +27,6 @@ export interface UseSettingsFormResult {
   syncLanguage: (lang: Language) => void;
 }
 
-/**
- * useSettingsForm - 表单状态管理
- * 负责：
- * - 表单数据状态
- * - 表单字段更新
- * - 语言同步
- * - 表单重置
- */
 export function useSettingsForm(): UseSettingsFormResult {
   const { i18n } = useTranslation();
   const { data, isLoading } = useSettingsQuery();
@@ -49,33 +37,21 @@ export function useSettingsForm(): UseSettingsFormResult {
 
   const initialLanguageRef = useRef<Language>("zh");
 
-  const readPersistedLanguage = useCallback((): Language => {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("language");
-      if (stored === "en" || stored === "zh" || stored === "ja") {
-        return stored as Language;
-      }
-    }
-    return normalizeLanguage(i18n.language);
-  }, [i18n]);
+  const readPersistedLanguage = useCallback((): Language => "zh", []);
 
   const syncLanguage = useCallback(
     (lang: Language) => {
-      const current = normalizeLanguage(i18n.language);
-      if (current !== lang) {
+      if (i18n.language !== lang) {
         void i18n.changeLanguage(lang);
       }
     },
     [i18n],
   );
 
-  // 初始化设置数据
   useEffect(() => {
     if (!data) return;
 
-    const normalizedLanguage = normalizeLanguage(
-      data.language ?? readPersistedLanguage(),
-    );
+    const normalizedLanguage = normalizeLanguage();
 
     const normalized: SettingsFormState = {
       ...data,
@@ -96,7 +72,7 @@ export function useSettingsForm(): UseSettingsFormResult {
     setSettingsState(normalized);
     initialLanguageRef.current = normalizedLanguage;
     syncLanguage(normalizedLanguage);
-  }, [data, readPersistedLanguage, syncLanguage]);
+  }, [data, syncLanguage]);
 
   const updateSettings = useCallback(
     (updates: Partial<SettingsFormState>) => {
@@ -115,14 +91,10 @@ export function useSettingsForm(): UseSettingsFormResult {
         const next: SettingsFormState = {
           ...base,
           ...updates,
+          language: "zh",
         };
 
-        if (updates.language) {
-          const normalized = normalizeLanguage(updates.language);
-          next.language = normalized;
-          syncLanguage(normalized);
-        }
-
+        syncLanguage("zh");
         return next;
       });
     },
@@ -133,9 +105,7 @@ export function useSettingsForm(): UseSettingsFormResult {
     (serverData: Settings | null) => {
       if (!serverData) return;
 
-      const normalizedLanguage = normalizeLanguage(
-        serverData.language ?? readPersistedLanguage(),
-      );
+      const normalizedLanguage = normalizeLanguage();
 
       const normalized: SettingsFormState = {
         ...serverData,
@@ -156,7 +126,7 @@ export function useSettingsForm(): UseSettingsFormResult {
       setSettingsState(normalized);
       syncLanguage(initialLanguageRef.current);
     },
-    [readPersistedLanguage, syncLanguage],
+    [syncLanguage],
   );
 
   return {

@@ -251,7 +251,7 @@ describe("useSettings hook", () => {
       codexConfigDir: undefined,
       geminiConfigDir: "/server/gemini",
       opencodeConfigDir: "/server/opencode",
-      language: "en",
+      language: "zh",
     };
     useSettingsQueryMock.mockReturnValue({
       data: serverSettings,
@@ -263,10 +263,10 @@ describe("useSettings hook", () => {
         ...serverSettings,
         claudeConfigDir: "  /custom/claude  ",
         codexConfigDir: "   ",
-        language: "en",
+        language: "zh",
         enableClaudePluginIntegration: true, // 状态从 false 变为 true
       },
-      initialLanguage: "en",
+      initialLanguage: "zh",
     });
 
     directorySettingsMock = createDirectorySettingsMock({
@@ -286,14 +286,13 @@ describe("useSettings hook", () => {
     const payload = mutateAsyncMock.mock.calls[0][0] as Settings;
     expect(payload.claudeConfigDir).toBe("/custom/claude");
     expect(payload.codexConfigDir).toBeUndefined();
-    expect(payload.language).toBe("en");
+    expect(payload.language).toBe("zh");
     expect(setAppConfigDirOverrideMock).toHaveBeenCalledWith("/override/app");
     // 状态改变，应该调用 API
     expect(applyClaudePluginConfigMock).toHaveBeenCalledWith({
       official: false,
     });
     expect(metadataMock.setRequiresRestart).toHaveBeenCalledWith(true);
-    expect(window.localStorage.getItem("language")).toBe("en");
     expect(toastErrorMock).not.toHaveBeenCalled();
     // 插件同步已包含 syncCurrentProvidersLiveSafe，目录变更不再重复调用
     expect(syncCurrentProvidersLiveMock).toHaveBeenCalledTimes(1);

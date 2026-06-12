@@ -52,20 +52,26 @@ const sanitizeDir = (value?: string | null): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-/**
- * useSettings - 组合层
- * 负责：
- * - 组合 useSettingsForm、useDirectorySettings、useSettingsMetadata
- * - 保存设置逻辑
- * - 重置设置逻辑
- */
+const buildSettingsPayload = (
+  settings: SettingsFormState,
+  dirs: {
+    claudeConfigDir?: string;
+    codexConfigDir?: string;
+    geminiConfigDir?: string;
+    opencodeConfigDir?: string;
+  },
+): Settings => ({
+  ...settings,
+  ...dirs,
+  language: "zh",
+});
+
 export function useSettings(): UseSettingsResult {
   const { t } = useTranslation();
   const { data } = useSettingsQuery();
   const saveMutation = useSaveSettingsMutation();
   const queryClient = useQueryClient();
 
-  // 1️⃣ 表单状态管理
   const {
     settings,
     isLoading: isFormLoading,
@@ -75,7 +81,6 @@ export function useSettings(): UseSettingsResult {
     syncLanguage,
   } = useSettingsForm();
 
-  // 2️⃣ 目录管理
   const {
     appConfigDir,
     resolvedDirs,
@@ -93,7 +98,6 @@ export function useSettings(): UseSettingsResult {
     onUpdateSettings: updateSettings,
   });
 
-  // 3️⃣ 元数据管理
   const {
     isPortable,
     requiresRestart,
@@ -102,7 +106,6 @@ export function useSettings(): UseSettingsResult {
     setRequiresRestart,
   } = useSettingsMetadata();
 
-  // 重置设置
   const resetSettings = useCallback(() => {
     resetForm(data ?? null);
     syncLanguage(initialLanguage);
@@ -116,22 +119,19 @@ export function useSettings(): UseSettingsResult {
   }, [
     data,
     initialLanguage,
-    resetForm,
-    syncLanguage,
     resetAllDirectories,
+    resetForm,
     setRequiresRestart,
+    syncLanguage,
   ]);
 
-  // 同步 Claude 插件集成配置到 ~/.claude/settings.json
-  // 返回 true 表示已执行过 syncCurrentProvidersLiveSafe，调用方可跳过重复同步
-  // prevEnabled 必须由调用方在 saveMutation 之前从实时缓存（queryClient.getQueryData）捕获，
-  // 避免 useCallback closure 中 data 因未 re-render 而滞后导致的快速连切 race。
   const syncClaudePluginIfChanged = useCallback(
     async (
       enabled: boolean | undefined,
       prevEnabled: boolean | undefined,
     ): Promise<boolean> => {
       if (enabled === undefined || enabled === prevEnabled) return false;
+
       try {
         if (enabled) {
           const currentId = await providersApi.getCurrent("claude");
@@ -159,10 +159,7 @@ export function useSettings(): UseSettingsResult {
         }
         return true;
       } catch (error) {
-        console.warn(
-          "[useSettings] Failed to sync Claude plugin config",
-          error,
-        );
+        console.warn("[useSettings] Failed to sync Claude plugin config", error);
         toast.error(
           t("notifications.syncClaudePluginFailed", {
             defaultValue: "同步 Claude 插件失败",
@@ -174,39 +171,25 @@ export function useSettings(): UseSettingsResult {
     [t],
   );
 
-  // 即时保存设置（用于 General 标签页的实时更新）
-  // 保存基础配置 + 独立的系统 API 调用（开机自启）
   const autoSaveSettings = useCallback(
     async (updates: Partial<SettingsFormState>): Promise<SaveResult | null> => {
       const mergedSettings = settings ? { ...settings, ...updates } : null;
       if (!mergedSettings) return null;
 
       try {
-        const sanitizedClaudeDir = sanitizeDir(mergedSettings.claudeConfigDir);
-        const sanitizedCodexDir = sanitizeDir(mergedSettings.codexConfigDir);
-        const sanitizedGeminiDir = sanitizeDir(mergedSettings.geminiConfigDir);
-        const sanitizedOpencodeDir = sanitizeDir(
-          mergedSettings.opencodeConfigDir,
-        );
-        const payload: Settings = {
-          ...mergedSettings,
-          claudeConfigDir: sanitizedClaudeDir,
-          codexConfigDir: sanitizedCodexDir,
-          geminiConfigDir: sanitizedGeminiDir,
-          opencodeConfigDir: sanitizedOpencodeDir,
-          language: mergedSettings.language,
-        };
+        const payload = buildSettingsPayload(mergedSettings, {
+          claudeConfigDir: sanitizeDir(mergedSettings.claudeConfigDir),
+          codexConfigDir: sanitizeDir(mergedSettings.codexConfigDir),
+          geminiConfigDir: sanitizeDir(mergedSettings.geminiConfigDir),
+          opencodeConfigDir: sanitizeDir(mergedSettings.opencodeConfigDir),
+        });
 
-        // 在 mutate 之前从实时缓存捕获上一次持久化的插件集成状态，
-        // 避免 closure 里的 data 因 React 尚未 re-render 而滞后
         const prevPluginEnabled = queryClient.getQueryData<Settings>([
           "settings",
         ])?.enableClaudePluginIntegration;
 
-        // 保存到配置文件
         await saveMutation.mutateAsync(payload);
 
-        // 如果开机自启状态改变，调用系统 API
         if (
           payload.launchOnStartup !== undefined &&
           payload.launchOnStartup !== data?.launchOnStartup
@@ -223,8 +206,6 @@ export function useSettings(): UseSettingsResult {
           }
         }
 
-        // Claude Code 初次安装确认：开=写入 hasCompletedOnboarding=true；关=删除该字段
-        // 仅在本次更新包含 skipClaudeOnboarding 时触发，避免其它自动保存误触发
         const nextSkipClaudeOnboarding = updates.skipClaudeOnboarding;
         if (
           nextSkipClaudeOnboarding !== undefined &&
@@ -258,19 +239,6 @@ export function useSettings(): UseSettingsResult {
           prevPluginEnabled,
         );
 
-        // 持久化语言偏好
-        try {
-          if (typeof window !== "undefined" && updates.language) {
-            window.localStorage.setItem("language", updates.language);
-          }
-        } catch (error) {
-          console.warn(
-            "[useSettings] Failed to persist language preference",
-            error,
-          );
-        }
-
-        // 更新托盘菜单
         try {
           await providersApi.updateTrayMenu();
         } catch (error) {
@@ -292,8 +260,6 @@ export function useSettings(): UseSettingsResult {
     [data, queryClient, saveMutation, settings, syncClaudePluginIfChanged, t],
   );
 
-  // 完整保存设置（用于 Advanced 标签页的手动保存）
-  // 包含所有系统 API 调用和完整的验证流程
   const saveSettings = useCallback(
     async (
       overrides?: Partial<SettingsFormState>,
@@ -301,6 +267,7 @@ export function useSettings(): UseSettingsResult {
     ): Promise<SaveResult | null> => {
       const mergedSettings = settings ? { ...settings, ...overrides } : null;
       if (!mergedSettings) return null;
+
       try {
         const sanitizedAppDir = sanitizeDir(appConfigDir);
         const sanitizedClaudeDir = sanitizeDir(mergedSettings.claudeConfigDir);
@@ -314,26 +281,21 @@ export function useSettings(): UseSettingsResult {
         const previousCodexDir = sanitizeDir(data?.codexConfigDir);
         const previousGeminiDir = sanitizeDir(data?.geminiConfigDir);
         const previousOpencodeDir = sanitizeDir(data?.opencodeConfigDir);
-        const payload: Settings = {
-          ...mergedSettings,
+
+        const payload = buildSettingsPayload(mergedSettings, {
           claudeConfigDir: sanitizedClaudeDir,
           codexConfigDir: sanitizedCodexDir,
           geminiConfigDir: sanitizedGeminiDir,
           opencodeConfigDir: sanitizedOpencodeDir,
-          language: mergedSettings.language,
-        };
+        });
 
-        // 在 mutate 之前从实时缓存捕获上一次持久化的插件集成状态，
-        // 避免 closure 里的 data 因 React 尚未 re-render 而滞后
         const prevPluginEnabled = queryClient.getQueryData<Settings>([
           "settings",
         ])?.enableClaudePluginIntegration;
 
         await saveMutation.mutateAsync(payload);
-
         await settingsApi.setAppConfigDirOverride(sanitizedAppDir ?? null);
 
-        // 只在开机自启状态真正改变时调用系统 API
         if (
           payload.launchOnStartup !== undefined &&
           payload.launchOnStartup !== data?.launchOnStartup
@@ -350,7 +312,6 @@ export function useSettings(): UseSettingsResult {
           }
         }
 
-        // Claude Code 初次安装确认：开=写入 hasCompletedOnboarding=true；关=删除该字段
         const prevSkipClaudeOnboarding = data?.skipClaudeOnboarding ?? false;
         const nextSkipClaudeOnboarding = payload.skipClaudeOnboarding ?? false;
         if (nextSkipClaudeOnboarding !== prevSkipClaudeOnboarding) {
@@ -383,24 +344,11 @@ export function useSettings(): UseSettingsResult {
         );
 
         try {
-          if (typeof window !== "undefined" && payload.language) {
-            window.localStorage.setItem("language", payload.language);
-          }
-        } catch (error) {
-          console.warn(
-            "[useSettings] Failed to persist language preference",
-            error,
-          );
-        }
-
-        try {
           await providersApi.updateTrayMenu();
         } catch (error) {
           console.warn("[useSettings] Failed to refresh tray menu", error);
         }
 
-        // 如果 Claude/Codex/Gemini/OpenCode 的目录覆盖发生变化，则立即将"当前使用的供应商"写回对应应用的 live 配置
-        // 如果插件同步已经执行过 syncCurrentProvidersLiveSafe，则跳过避免重复
         const claudeDirChanged = sanitizedClaudeDir !== previousClaudeDir;
         const codexDirChanged = sanitizedCodexDir !== previousCodexDir;
         const geminiDirChanged = sanitizedGeminiDir !== previousGeminiDir;
@@ -451,8 +399,8 @@ export function useSettings(): UseSettingsResult {
       initialAppConfigDir,
       queryClient,
       saveMutation,
-      settings,
       setRequiresRestart,
+      settings,
       syncClaudePluginIfChanged,
       t,
     ],
@@ -460,7 +408,7 @@ export function useSettings(): UseSettingsResult {
 
   const isLoading = useMemo(
     () => isFormLoading || isDirectoryLoading || isMetadataLoading,
-    [isFormLoading, isDirectoryLoading, isMetadataLoading],
+    [isDirectoryLoading, isFormLoading, isMetadataLoading],
   );
 
   return {

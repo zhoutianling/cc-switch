@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe("useSettingsForm Hook", () => {
-  it("should normalize settings and sync language on initialization", async () => {
+  it("normalizes server language to zh on initialization", async () => {
     useSettingsQueryMock.mockReturnValue({
       data: {
         showInTray: undefined,
@@ -53,35 +53,12 @@ describe("useSettingsForm Hook", () => {
     expect(settings.enableClaudePluginIntegration).toBe(false);
     expect(settings.claudeConfigDir).toBe("/Users/demo");
     expect(settings.codexConfigDir).toBeUndefined();
-    expect(settings.language).toBe("en");
-    expect(result.current.initialLanguage).toBe("en");
-    expect(changeLanguageSpy).toHaveBeenCalledWith("en");
+    expect(settings.language).toBe("zh");
+    expect(result.current.initialLanguage).toBe("zh");
+    expect(changeLanguageSpy).not.toHaveBeenCalled();
   });
 
-  it("should support japanese language preference from server data", async () => {
-    useSettingsQueryMock.mockReturnValue({
-      data: {
-        showInTray: true,
-        minimizeToTrayOnClose: true,
-        enableClaudePluginIntegration: false,
-        claudeConfigDir: "/Users/demo",
-        codexConfigDir: null,
-        language: "ja",
-      },
-      isLoading: false,
-    });
-
-    const { result } = renderHook(() => useSettingsForm());
-
-    await waitFor(() => {
-      expect(result.current.settings?.language).toBe("ja");
-    });
-
-    expect(result.current.initialLanguage).toBe("ja");
-    expect(changeLanguageSpy).toHaveBeenCalledWith("ja");
-  });
-
-  it("should prioritize reading language from local storage in readPersistedLanguage", () => {
+  it("always returns zh from readPersistedLanguage", () => {
     useSettingsQueryMock.mockReturnValue({
       data: null,
       isLoading: false,
@@ -90,12 +67,11 @@ describe("useSettingsForm Hook", () => {
 
     const { result } = renderHook(() => useSettingsForm());
 
-    const lang = result.current.readPersistedLanguage();
-    expect(lang).toBe("en");
+    expect(result.current.readPersistedLanguage()).toBe("zh");
     expect(changeLanguageSpy).not.toHaveBeenCalled();
   });
 
-  it("should update fields and sync language when language changes in updateSettings", () => {
+  it("keeps language fixed to zh in updateSettings", () => {
     useSettingsQueryMock.mockReturnValue({
       data: null,
       isLoading: false,
@@ -111,14 +87,14 @@ describe("useSettingsForm Hook", () => {
 
     changeLanguageSpy.mockClear();
     act(() => {
-      result.current.updateSettings({ language: "en" });
+      result.current.updateSettings({ language: "zh" });
     });
 
-    expect(result.current.settings?.language).toBe("en");
-    expect(changeLanguageSpy).toHaveBeenCalledWith("en");
+    expect(result.current.settings?.language).toBe("zh");
+    expect(changeLanguageSpy).not.toHaveBeenCalled();
   });
 
-  it("should reset with server data and restore initial language in resetSettings", async () => {
+  it("resets with server data and keeps initial language as zh", async () => {
     useSettingsQueryMock.mockReturnValue({
       data: {
         showInTray: true,
@@ -126,7 +102,7 @@ describe("useSettingsForm Hook", () => {
         enableClaudePluginIntegration: false,
         claudeConfigDir: "/origin",
         codexConfigDir: null,
-        language: "en",
+        language: "ja",
       },
       isLoading: false,
     });
@@ -138,7 +114,6 @@ describe("useSettingsForm Hook", () => {
     });
 
     changeLanguageSpy.mockClear();
-    (i18n as any).language = "zh";
 
     act(() => {
       result.current.resetSettings({
@@ -158,11 +133,11 @@ describe("useSettingsForm Hook", () => {
     expect(settings.claudeConfigDir).toBe("/reset");
     expect(settings.codexConfigDir).toBeUndefined();
     expect(settings.language).toBe("zh");
-    expect(result.current.initialLanguage).toBe("en");
-    expect(changeLanguageSpy).toHaveBeenCalledWith("en");
+    expect(result.current.initialLanguage).toBe("zh");
+    expect(changeLanguageSpy).not.toHaveBeenCalled();
   });
 
-  it("should not call changeLanguage repeatedly when language is consistent in syncLanguage", async () => {
+  it("syncs back to zh when i18n state drifts", async () => {
     useSettingsQueryMock.mockReturnValue({
       data: {
         showInTray: true,
@@ -182,12 +157,12 @@ describe("useSettingsForm Hook", () => {
     });
 
     changeLanguageSpy.mockClear();
-    (i18n as any).language = "zh";
+    (i18n as any).language = "en";
 
     act(() => {
       result.current.syncLanguage("zh");
     });
 
-    expect(changeLanguageSpy).not.toHaveBeenCalled();
+    expect(changeLanguageSpy).toHaveBeenCalledWith("zh");
   });
 });

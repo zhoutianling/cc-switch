@@ -279,7 +279,7 @@ export const handlers = [
       if (!filePath) {
         return success({ success: false, message: "Missing file" });
       }
-      setSettings({ language: "en" });
+      setSettings({ language: "zh" });
       return success({ success: true, backupId: "backup-123" });
     },
   ),
