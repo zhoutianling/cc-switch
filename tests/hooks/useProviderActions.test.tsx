@@ -3,7 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useProviderActions } from "@/hooks/useProviderActions";
-import type { Provider, UsageScript } from "@/types";
+import type { Provider } from "@/types";
 
 const toastSuccessMock = vi.fn();
 const toastErrorMock = vi.fn();
@@ -353,96 +353,6 @@ describe("useProviderActions", () => {
     });
 
     expect(deleteProviderMutateAsync).toHaveBeenCalledWith("provider-2");
-  });
-
-  it("should update provider and refresh cache when saveUsageScript succeeds", async () => {
-    providersApiUpdateMock.mockResolvedValueOnce(true);
-    const { wrapper, queryClient } = createWrapper();
-    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
-
-    const provider = createProvider({
-      meta: {
-        usage_script: {
-          enabled: false,
-          language: "javascript",
-          code: "",
-        },
-      },
-    });
-
-    const script: UsageScript = {
-      enabled: true,
-      language: "javascript",
-      code: "return { success: true };",
-      timeout: 5,
-    };
-
-    const { result } = renderHook(() => useProviderActions("claude"), {
-      wrapper,
-    });
-
-    await act(async () => {
-      await result.current.saveUsageScript(provider, script);
-    });
-
-    expect(providersApiUpdateMock).toHaveBeenCalledWith(
-      {
-        ...provider,
-        meta: {
-          ...provider.meta,
-          usage_script: script,
-        },
-      },
-      "claude",
-    );
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["providers", "claude"],
-    });
-    expect(toastSuccessMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("should show error toast when saveUsageScript fails with error message", async () => {
-    providersApiUpdateMock.mockRejectedValueOnce(new Error("Save failed"));
-    const { wrapper } = createWrapper();
-    const provider = createProvider();
-    const script: UsageScript = {
-      enabled: true,
-      language: "javascript",
-      code: "return {}",
-    };
-
-    const { result } = renderHook(() => useProviderActions("claude"), {
-      wrapper,
-    });
-
-    await act(async () => {
-      await result.current.saveUsageScript(provider, script);
-    });
-
-    expect(toastErrorMock).toHaveBeenCalledTimes(1);
-    expect(toastErrorMock.mock.calls[0]?.[0]).toBe("Save failed");
-  });
-
-  it("should use default error message when saveUsageScript fails without error message", async () => {
-    providersApiUpdateMock.mockRejectedValueOnce(new Error(""));
-    const { wrapper } = createWrapper();
-    const provider = createProvider();
-    const script: UsageScript = {
-      enabled: true,
-      language: "javascript",
-      code: "return {}",
-    };
-
-    const { result } = renderHook(() => useProviderActions("claude"), {
-      wrapper,
-    });
-
-    await act(async () => {
-      await result.current.saveUsageScript(provider, script);
-    });
-
-    expect(toastErrorMock).toHaveBeenCalledTimes(1);
-    expect(toastErrorMock.mock.calls[0]?.[0]).toBe("用量查询配置保存失败");
   });
 
   it("propagates addProvider errors to caller", async () => {

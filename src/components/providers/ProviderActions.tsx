@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   Check,
   Copy,
   Edit,
@@ -27,7 +26,6 @@ interface ProviderActionsProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onTest?: () => void;
-  onConfigureUsage?: () => void;
   onDelete: () => void;
   onRemoveFromConfig?: () => void;
   onDisableOmo?: () => void;
@@ -58,7 +56,6 @@ export function ProviderActions({
   onEdit,
   onDuplicate,
   onTest,
-  onConfigureUsage,
   onDelete,
   onRemoveFromConfig,
   onDisableOmo,
@@ -255,20 +252,6 @@ export function ProviderActions({
           ) : (
             <TestTube2 className="h-4 w-4" />
           )}
-        </Button>
-
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onConfigureUsage || undefined}
-          title={t("provider.configureUsage")}
-          className={cn(
-            iconButtonClass,
-            !onConfigureUsage &&
-              "opacity-40 cursor-not-allowed text-muted-foreground",
-          )}
-        >
-          <BarChart3 className="h-4 w-4" />
         </Button>
 
         {onOpenTerminal && (

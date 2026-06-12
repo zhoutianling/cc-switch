@@ -1,13 +1,8 @@
 import { useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { providersApi, settingsApi, type AppId } from "@/lib/api";
-import type {
-  Provider,
-  UsageScript,
-} from "@/types";
-import { injectCodingPlanUsageScript } from "@/config/codingPlanProviders";
+import type { Provider } from "@/types";
 import {
   useAddProviderMutation,
   useUpdateProviderMutation,
@@ -30,7 +25,6 @@ export function useProviderActions(
   isProxyTakeover?: boolean,
 ) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
 
   const addProviderMutation = useAddProviderMutation(activeApp);
   const updateProviderMutation = useUpdateProviderMutation(activeApp);
@@ -72,10 +66,9 @@ export function useProviderActions(
         addToLive?: boolean;
       },
     ) => {
-      const enhanced = injectCodingPlanUsageScript(activeApp, provider);
-      await addProviderMutation.mutateAsync(enhanced);
+      await addProviderMutation.mutateAsync(provider);
     },
-    [addProviderMutation, activeApp],
+    [addProviderMutation],
   );
 
   // 更新供应商
@@ -235,51 +228,11 @@ export function useProviderActions(
     [deleteProviderMutation],
   );
 
-  // 保存用量脚本
-  const saveUsageScript = useCallback(
-    async (provider: Provider, script: UsageScript) => {
-      try {
-        const updatedProvider: Provider = {
-          ...provider,
-          meta: {
-            ...provider.meta,
-            usage_script: script,
-          },
-        };
-
-        await providersApi.update(updatedProvider, activeApp);
-        await queryClient.invalidateQueries({
-          queryKey: ["providers", activeApp],
-        });
-        // 🔧 保存用量脚本后，也应该失效该 provider 的用量查询缓存
-        // 这样主页列表会使用新配置重新查询，而不是使用测试时的缓存
-        await queryClient.invalidateQueries({
-          queryKey: ["usage", provider.id, activeApp],
-        });
-        toast.success(
-          t("provider.usageSaved", {
-            defaultValue: "用量查询配置已保存",
-          }),
-          { closeButton: true },
-        );
-      } catch (error) {
-        const detail =
-          extractErrorMessage(error) ||
-          t("provider.usageSaveFailed", {
-            defaultValue: "用量查询配置保存失败",
-          });
-        toast.error(detail);
-      }
-    },
-    [activeApp, queryClient, t],
-  );
-
   return {
     addProvider,
     updateProvider,
     switchProvider,
     deleteProvider,
-    saveUsageScript,
     isLoading:
       addProviderMutation.isPending ||
       updateProviderMutation.isPending ||

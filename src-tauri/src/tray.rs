@@ -849,8 +849,8 @@ pub(crate) async fn refresh_all_usage_in_tray(app: &tauri::AppHandle) {
             let state = app.state::<AppState>();
             let tool = app_type_str.to_string();
             subscription_futures.push(async move {
-                if let Err(e) =
-                    crate::commands::get_subscription_quota(app_clone, state, tool).await
+                let _ = (app_clone, state);
+                if let Err(e) = crate::services::subscription::get_subscription_quota(&tool).await
                 {
                     log::debug!("[Tray] 刷新{log_name}订阅用量失败（可能未登录）: {e}");
                 }

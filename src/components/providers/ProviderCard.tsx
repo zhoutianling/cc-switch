@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import { GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { useMemo } from "react";
+import { GripVertical } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   DraggableAttributes,
@@ -10,10 +10,6 @@ import type { AppId } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ProviderActions } from "@/components/providers/ProviderActions";
 import { ProviderIcon } from "@/components/ProviderIcon";
-import UsageFooter from "@/components/UsageFooter";
-import SubscriptionQuotaFooter from "@/components/SubscriptionQuotaFooter";
-import CopilotQuotaFooter from "@/components/CopilotQuotaFooter";
-import CodexOauthQuotaFooter from "@/components/CodexOauthQuotaFooter";
 import { PROVIDER_TYPES } from "@/config/constants";
 import { ProviderHealthBadge } from "@/components/providers/ProviderHealthBadge";
 import { FailoverPriorityBadge } from "@/components/providers/FailoverPriorityBadge";
@@ -23,7 +19,6 @@ import {
   isCodexChatWireApi,
 } from "@/utils/providerConfigUtils";
 import { useProviderHealth } from "@/lib/query/failover";
-import { useUsageQuery } from "@/lib/query/queries";
 
 interface DragHandleProps {
   attributes: DraggableAttributes;
@@ -44,7 +39,6 @@ interface ProviderCardProps {
   onRemoveFromConfig?: (provider: Provider) => void;
   onDisableOmo?: () => void;
   onDisableOmoSlim?: () => void;
-  onConfigureUsage: (provider: Provider) => void;
   onOpenWebsite: (url: string) => void;
   onDuplicate: (provider: Provider) => void;
   onTest?: (provider: Provider) => void;
@@ -133,7 +127,6 @@ export function ProviderCard({
   onRemoveFromConfig,
   onDisableOmo,
   onDisableOmoSlim,
-  onConfigureUsage,
   onOpenWebsite,
   onDuplicate,
   onTest,
@@ -175,7 +168,6 @@ export function ProviderCard({
     return true;
   }, [provider.notes, displayUrl, fallbackUrlText]);
 
-  const usageEnabled = provider.meta?.usage_script?.enabled ?? false;
   const isOfficial = isOfficialProvider(provider, appId);
   // 理由（此判定曾在「纯 category ↔ category+isOfficial 回退」间反复，结论钉死于此）：
   //  1) 封号保护是高代价决策，不该建立在「base_url/key 缺失」这种脆弱信号上——它无法区分
@@ -187,8 +179,7 @@ export function ProviderCard({
   const isOfficialBlockedByProxy =
     isProxyTakeover && provider.category === "official";
   const isCopilot =
-    provider.meta?.providerType === PROVIDER_TYPES.GITHUB_COPILOT ||
-    provider.meta?.usage_script?.templateType === "github_copilot";
+    provider.meta?.providerType === PROVIDER_TYPES.GITHUB_COPILOT;
   const isCodexOauth =
     provider.meta?.providerType === PROVIDER_TYPES.CODEX_OAUTH;
   const codexNeedsRouting = useMemo(() => {
@@ -210,30 +201,6 @@ export function ProviderCard({
 
   // 获取用量数据以判断是否有多套餐
   // 累加模式应用（OpenCode）：使用 isInConfig 代替 isCurrent
-  const shouldAutoQuery =
-    appId === "opencode" ? isInConfig : isCurrent;
-  const autoQueryInterval = shouldAutoQuery
-    ? provider.meta?.usage_script?.autoQueryInterval || 0
-    : 0;
-
-  const { data: usage } = useUsageQuery(provider.id, appId, {
-    enabled: usageEnabled,
-    autoQueryInterval,
-  });
-
-  const isTokenPlan =
-    provider.meta?.usage_script?.templateType === "token_plan";
-  const hasMultiplePlans =
-    usage?.success && usage.data && usage.data.length > 1 && !isTokenPlan;
-
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  useEffect(() => {
-    if (hasMultiplePlans) {
-      setIsExpanded(true);
-    }
-  }, [hasMultiplePlans]);
-
   const handleOpenWebsite = () => {
     if (!isClickableUrl) {
       return;
@@ -425,69 +392,6 @@ export function ProviderCard({
         </div>
 
         <div className="mt-auto flex min-w-0 flex-col gap-3 border-t border-border/60 pt-3">
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1">
-              {isCopilot ? (
-                <CopilotQuotaFooter
-                  meta={provider.meta}
-                  inline={true}
-                  isCurrent={isCurrent}
-                />
-              ) : isCodexOauth ? (
-                <CodexOauthQuotaFooter
-                  meta={provider.meta}
-                  inline={true}
-                  isCurrent={isCurrent}
-                />
-              ) : isOfficial ? (
-                <SubscriptionQuotaFooter
-                  appId={appId}
-                  inline={true}
-                  isCurrent={isCurrent}
-                />
-              ) : hasMultiplePlans ? (
-                <div className="flex min-w-0 items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">
-                    {t("usage.multiplePlans", {
-                      count: usage?.data?.length || 0,
-                      defaultValue: `${usage?.data?.length || 0} 个套餐`,
-                    })}
-                  </span>
-                </div>
-              ) : (
-                <UsageFooter
-                  provider={provider}
-                  providerId={provider.id}
-                  appId={appId}
-                  usageEnabled={usageEnabled}
-                  isCurrent={isCurrent}
-                  isInConfig={isInConfig}
-                  inline={true}
-                />
-              )}
-              {hasMultiplePlans && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsExpanded(!isExpanded);
-                  }}
-                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 flex-shrink-0"
-                  title={
-                    isExpanded
-                      ? t("usage.collapse", { defaultValue: "收起" })
-                      : t("usage.expand", { defaultValue: "展开" })
-                  }
-                >
-                  {isExpanded ? (
-                    <ChevronUp size={14} />
-                  ) : (
-                    <ChevronDown size={14} />
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             <ProviderActions
               appId={appId}
@@ -509,11 +413,6 @@ export function ProviderCard({
                   ? () => onTest(provider)
                   : undefined
               }
-              onConfigureUsage={
-                isOfficial || isCopilot || isCodexOauth
-                  ? undefined
-                  : () => onConfigureUsage(provider)
-              }
               onDelete={() => onDelete(provider)}
               onRemoveFromConfig={
                 onRemoveFromConfig
@@ -531,20 +430,6 @@ export function ProviderCard({
           </div>
         </div>
       </div>
-
-      {isExpanded && hasMultiplePlans && (
-        <div className="mt-4 pt-4 border-t border-border-default">
-          <UsageFooter
-            provider={provider}
-            providerId={provider.id}
-            appId={appId}
-            usageEnabled={usageEnabled}
-            isCurrent={isCurrent}
-            isInConfig={isInConfig}
-            inline={false}
-          />
-        </div>
-      )}
     </div>
   );
 }
