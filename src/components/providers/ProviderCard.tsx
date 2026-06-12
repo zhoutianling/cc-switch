@@ -392,7 +392,7 @@ export function ProviderCard({
         </div>
 
         <div className="mt-auto flex min-w-0 flex-col gap-3 border-t border-border/60 pt-3">
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <div className="flex flex-wrap items-center justify-start gap-1.5">
             <ProviderActions
               appId={appId}
               isCurrent={isCurrent}

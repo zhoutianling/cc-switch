@@ -195,7 +195,7 @@ export function ProviderActions({
   const canDelete = isOmo || isAdditiveMode ? true : !isCurrent;
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5">
+    <div className="flex flex-wrap items-center justify-start gap-1.5">
       <span
         title={buttonState.title}
         className={cn(
